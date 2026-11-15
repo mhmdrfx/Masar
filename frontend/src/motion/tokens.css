@@ -1,0 +1,627 @@
+/* ============================================================================
+ * Masar Motion System — Centralized Tokens & 60fps GPU Keyframes
+ * Uses transform & opacity strictly (no width/height/top/left layout thrashing).
+ * ============================================================================ */
+
+:root {
+  /* Smooth Critically-Damped Spring & Bounce Easings */
+  --masar-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);      /* smooth arrival, zero overshoot wobble */
+  --masar-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);   /* playful icon overshoot */
+  --masar-ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --masar-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --masar-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --masar-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Durations */
+  --masar-dur-exit: 110ms;
+  --masar-dur-enter: 280ms;
+  --masar-dur-stage: 190ms;
+  --masar-dur-modal: 280ms;
+  --masar-dur-icon: 250ms;
+  --masar-dur-card: 260ms;
+
+  /* Distances & Scales */
+  --masar-slide-y: 12px;
+  --masar-slide-exit-y: -6px;
+  --masar-scale-enter: 0.992;
+  --masar-icon-hover-scale: 1.22;
+  --masar-icon-press-scale: 0.86;
+
+  /* Stagger Step (40–60ms range) */
+  --masar-stagger-step: 48ms;
+}
+
+/* --------------------------------------------------------------------------
+ * 1) Page / Tab Exit-Before-Enter Choreography
+ *    Stage wrapper uses pure opacity + micro vertical exit so outer window &
+ *    card boundaries never shrink/overshoot horizontally. Individual cards
+ *    animate inside via .masar-stagger-* cleanly at 60fps.
+ * -------------------------------------------------------------------------- */
+@keyframes masarStageEnter {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes masarStageExit {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, var(--masar-slide-exit-y), 0);
+  }
+}
+
+@keyframes masarPageEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, var(--masar-slide-y), 0) scale(var(--masar-scale-enter));
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.masar-page-enter {
+  animation: masarStageEnter var(--masar-dur-stage) var(--masar-ease-smooth) both;
+}
+
+.masar-page-exit {
+  animation: masarStageExit var(--masar-dur-exit) var(--masar-ease-exit) both;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+ * 2) Sequential Stagger Reveals (48ms spacing)
+ * -------------------------------------------------------------------------- */
+.masar-stagger-1 {
+  backface-visibility: hidden;
+  animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 0) both;
+}
+.masar-stagger-2 {
+  backface-visibility: hidden;
+  animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 1) both;
+}
+.masar-stagger-3 {
+  backface-visibility: hidden;
+  animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 2) both;
+}
+.masar-stagger-4 {
+  backface-visibility: hidden;
+  animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 3) both;
+}
+.masar-stagger-5 {
+  backface-visibility: hidden;
+  animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 4) both;
+}
+.masar-stagger-6 {
+  backface-visibility: hidden;
+  animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 5) both;
+}
+
+/* --------------------------------------------------------------------------
+ * 3) Interactive Icons (Bounce on Hover + Snappy Press Compression)
+ * -------------------------------------------------------------------------- */
+.masar-icon-target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateZ(0);
+  transition: transform var(--masar-dur-icon) var(--masar-ease-bounce);
+}
+
+.masar-icon-btn:hover .masar-icon-target,
+.masar-icon-interactive:hover {
+  transform: scale(var(--masar-icon-hover-scale)) translateY(-1px) translateZ(0);
+}
+
+.masar-icon-btn:active .masar-icon-target,
+.masar-icon-interactive:active {
+  transform: scale(var(--masar-icon-press-scale)) translateZ(0);
+  transition-duration: 90ms;
+}
+
+/* --------------------------------------------------------------------------
+ * 4) Modals (Frosted Blur Backdrop + Spring Panel Enter/Exit)
+ * -------------------------------------------------------------------------- */
+@keyframes masarBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes masarBackdropOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes masarModalPanelIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes masarModalPanelOut {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.97);
+  }
+}
+
+.masar-modal-backdrop-in {
+  animation: masarBackdropIn 200ms var(--masar-ease-smooth) both;
+}
+
+.masar-modal-backdrop-out {
+  animation: masarBackdropOut 160ms var(--masar-ease-exit) both;
+  pointer-events: none;
+}
+
+.masar-modal-panel-in {
+  will-change: transform, opacity;
+  animation: masarModalPanelIn var(--masar-dur-modal) var(--masar-ease-spring) both;
+}
+
+.masar-modal-panel-out {
+  will-change: transform, opacity;
+  animation: masarModalPanelOut 160ms var(--masar-ease-exit) both;
+}
+
+/* --------------------------------------------------------------------------
+ * 5) Card & Button Hover Elevation (GPU Only)
+ * -------------------------------------------------------------------------- */
+.masar-glass-hover {
+  transition:
+    transform var(--masar-dur-card) var(--masar-ease-spring),
+    box-shadow var(--masar-dur-card) var(--masar-ease-smooth),
+    border-color var(--masar-dur-card) var(--masar-ease-smooth);
+}
+
+.masar-glass-hover:hover {
+  transform: translate3d(0, -2px, 0);
+}
+
+/* --------------------------------------------------------------------------
+ * 5.5) Compact <-> Full Smooth Inline Width & Label Morph
+ * -------------------------------------------------------------------------- */
+.masar-collapse-track {
+  display: inline-grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  vertical-align: middle;
+  visibility: visible;
+  transition:
+    grid-template-columns 300ms var(--masar-ease-spring),
+    opacity 200ms var(--masar-ease-smooth),
+    visibility 0s;
+}
+
+.masar-collapse-track[data-open="false"] {
+  grid-template-columns: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-columns 300ms var(--masar-ease-spring),
+    opacity 200ms var(--masar-ease-smooth),
+    visibility 0s linear 200ms;
+}
+
+.masar-collapse-track > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  padding-block: 2px;
+  margin-block: -2px;
+}
+
+/* --------------------------------------------------------------------------
+ * 5.6) Report Studio Tabs, Sliding Pill, Radar Sonar & Staggered Cards
+ * -------------------------------------------------------------------------- */
+@keyframes masarStudioCardIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes masarStudioContentEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes masarStudioContentExit {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -5px, 0);
+  }
+}
+
+@keyframes masarStudioFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -3px, 0);
+  }
+}
+
+@keyframes masarSonarPing {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.72;
+  }
+  75%,
+  100% {
+    transform: scale(1.75);
+    opacity: 0;
+  }
+}
+
+.masar-studio-card {
+  will-change: transform, opacity;
+  animation: masarStudioCardIn 320ms var(--masar-ease-spring) both;
+}
+
+.masar-studio-content-enter {
+  animation: masarStudioContentEnter 260ms var(--masar-ease-spring) both;
+}
+
+.masar-studio-content-exit {
+  animation: masarStudioContentExit 100ms var(--masar-ease-exit) both;
+  pointer-events: none;
+}
+
+.masar-studio-float {
+  animation: masarStudioFloat 4.2s ease-in-out infinite;
+}
+
+.masar-sonar-ring {
+  animation: masarSonarPing 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.masar-tab-pill-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  border-radius: 0.55rem;
+  transition:
+    transform 280ms var(--masar-ease-spring),
+    width 280ms var(--masar-ease-spring),
+    height 280ms var(--masar-ease-spring),
+    opacity 180ms ease;
+}
+
+.masar-action-btn {
+  position: relative;
+  overflow: hidden;
+  transform: translate3d(0, 0, 0);
+  transition:
+    transform 280ms var(--masar-ease-spring),
+    box-shadow 280ms var(--masar-ease-smooth),
+    background-color 250ms var(--masar-ease-smooth),
+    border-color 250ms var(--masar-ease-smooth),
+    color 250ms var(--masar-ease-smooth);
+}
+
+.masar-action-btn:not(:disabled):hover {
+  transform: translate3d(0, -2px, 0) scale(1.018);
+}
+
+.masar-action-btn:not(:disabled):active {
+  transform: translate3d(0, 0, 0) scale(0.96);
+  transition-duration: 90ms;
+}
+
+.masar-cta-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.masar-cta-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 58%;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.36) 50%,
+    transparent 100%
+  );
+  transform: translateX(-160%) skewX(-18deg);
+  transition: transform 640ms var(--masar-ease-smooth);
+  pointer-events: none;
+}
+
+.masar-cta-sheen:hover::after {
+  transform: translateX(260%) skewX(-18deg);
+}
+
+/* --------------------------------------------------------------------------
+ * 5b) Application Startup Splash Screen Keyframes & Classes
+ * -------------------------------------------------------------------------- */
+@keyframes masarSplashEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes masarSplashExit {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0) scale(1.03);
+  }
+}
+
+@keyframes masarSplashHalo {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 0.85;
+  }
+}
+
+@keyframes masarSplashBarSweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(240%);
+  }
+}
+
+@keyframes masarOrbitCW {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes masarOrbitCCW {
+  0% {
+    transform: rotate(360deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes masarPacketDash {
+  0% {
+    stroke-dashoffset: 28;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes masarEqPulse {
+  0%,
+  100% {
+    transform: scaleY(0.32);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.masar-splash-card-in {
+  animation: masarSplashEnter 560ms var(--masar-ease-out-expo) both;
+}
+
+.masar-splash-stagger-1 {
+  animation: masarSplashEnter 520ms var(--masar-ease-out-expo) 90ms both;
+}
+
+.masar-splash-stagger-2 {
+  animation: masarSplashEnter 540ms var(--masar-ease-out-expo) 180ms both;
+}
+
+.masar-splash-stagger-3 {
+  animation: masarSplashEnter 560ms var(--masar-ease-out-expo) 270ms both;
+}
+
+.masar-splash-screen-out {
+  animation: masarSplashExit 420ms var(--masar-ease-in-out) forwards;
+  pointer-events: none;
+}
+
+.masar-splash-halo {
+  animation: masarSplashHalo 3.4s ease-in-out infinite;
+}
+
+.masar-splash-bar-shimmer {
+  animation: masarSplashBarSweep 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.masar-orbit-cw {
+  animation: masarOrbitCW 16s linear infinite;
+  transform-origin: center;
+}
+
+.masar-orbit-ccw {
+  animation: masarOrbitCCW 11s linear infinite;
+  transform-origin: center;
+}
+
+.masar-packet-flow {
+  stroke-dasharray: 5 9;
+  animation: masarPacketDash 1.1s linear infinite;
+}
+
+.masar-eq-bar {
+  transform-origin: bottom;
+  animation: masarEqPulse 1.1s ease-in-out infinite;
+}
+
+/* --------------------------------------------------------------------------
+ * 5c) Post-Splash Main Workspace Reveal Choreography (Pure GPU Transform/Opacity)
+ *     Zero filter:blur and zero React re-renders for locked 60fps smoothness.
+ * -------------------------------------------------------------------------- */
+@keyframes masarTitlebarDrop {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -14px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes masarHeaderUnfold {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes masarWorkspaceCardCascade {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.masar-workspace-holding .masar-boot-titlebar,
+.masar-workspace-holding .masar-boot-header,
+.masar-workspace-holding .masar-stagger-1,
+.masar-workspace-holding .masar-stagger-2,
+.masar-workspace-holding .masar-stagger-3,
+.masar-workspace-holding .masar-stagger-4,
+.masar-workspace-holding .masar-stagger-5,
+.masar-workspace-holding .masar-stagger-6 {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  animation: none !important;
+}
+
+.masar-workspace-entering .masar-boot-titlebar {
+  will-change: transform, opacity;
+  animation: masarTitlebarDrop 420ms var(--masar-ease-spring) 20ms both !important;
+}
+
+.masar-workspace-entering .masar-boot-header {
+  will-change: transform, opacity;
+  animation: masarHeaderUnfold 480ms var(--masar-ease-spring) 80ms both !important;
+}
+
+.masar-workspace-entering .masar-stagger-1 {
+  will-change: transform, opacity;
+  animation: masarWorkspaceCardCascade 520ms var(--masar-ease-spring) 150ms both !important;
+}
+
+.masar-workspace-entering .masar-stagger-2 {
+  will-change: transform, opacity;
+  animation: masarWorkspaceCardCascade 540ms var(--masar-ease-spring) 220ms both !important;
+}
+
+.masar-workspace-entering .masar-stagger-3 {
+  will-change: transform, opacity;
+  animation: masarWorkspaceCardCascade 560ms var(--masar-ease-spring) 290ms both !important;
+}
+
+.masar-workspace-entering .masar-stagger-4 {
+  will-change: transform, opacity;
+  animation: masarWorkspaceCardCascade 580ms var(--masar-ease-spring) 350ms both !important;
+}
+
+.masar-workspace-entering .masar-stagger-5 {
+  will-change: transform, opacity;
+  animation: masarWorkspaceCardCascade 600ms var(--masar-ease-spring) 410ms both !important;
+}
+
+.masar-workspace-entering .masar-stagger-6 {
+  will-change: transform, opacity;
+  animation: masarWorkspaceCardCascade 620ms var(--masar-ease-spring) 460ms both !important;
+}
+
+/* --------------------------------------------------------------------------
+ * 6) Respect Accessibility Motion Preferences
+ * -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .masar-page-enter,
+  .masar-page-exit,
+  .masar-stagger-1,
+  .masar-stagger-2,
+  .masar-stagger-3,
+  .masar-stagger-4,
+  .masar-stagger-5,
+  .masar-stagger-6,
+  .masar-studio-card,
+  .masar-studio-content-enter,
+  .masar-studio-content-exit,
+  .masar-modal-backdrop-in,
+  .masar-modal-backdrop-out,
+  .masar-modal-panel-in,
+  .masar-modal-panel-out {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+
+  .masar-icon-target,
+  .masar-glass-hover,
+  .masar-collapse-track,
+  .masar-tab-pill-indicator,
+  .masar-cta-sheen::after {
+    transition-duration: 0.01ms !important;
+  }
+}

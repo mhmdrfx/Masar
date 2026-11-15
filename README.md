@@ -11,7 +11,7 @@
   <strong>أداة مكتبية احترافية لتشخيص الشبكة، وتتبع المسار البصري، وقياس السرعة بدقة لنظام ويندوز</strong>
 </p>
 
-[![Latest Release](https://img.shields.io/badge/Release-v1.0.3-ef4444?style=for-the-badge&logo=github)](https://github.com/mhmdrfx/masar/releases/latest)
+[![Latest Release](https://img.shields.io/badge/Release-v1.0.4-ef4444?style=for-the-badge&logo=github)](https://github.com/mhmdrfx/masar/releases/latest)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(x64)-0284c7?style=for-the-badge&logo=windows)](https://github.com/mhmdrfx/masar/releases/latest)
 [![Built With](https://img.shields.io/badge/Built%20With-Go%201.23%20%2B%20Wails%20v2-00ADD8?style=for-the-badge&logo=go)](https://wails.io)
 [![License](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
@@ -51,11 +51,11 @@ Whether you are troubleshooting ISP routing bottlenecks, isolating real packet l
 | Module | Engineering Highlights |
 | :--- | :--- |
 | **Visual MTR & Route Tracer** | Concurrent low-level ICMPv4 Echo dispatcher (`TTL 1–30`) with per-hop `Loss%`, `Best`, `Avg`, `Worst`, `Last`, and `Jitter` metrics, automatic silent-router / rate-limit filtering, and shared TTL caches for PTR reverse DNS & Geo-IP/ASN lookups. |
-| **Speedtest-Style Bandwidth Benchmark** | Deep staged saturation benchmark: 4s Ping/Jitter matrix, 15s Download (**12 parallel HTTP/2 streams**, 25MB–50MB payloads), and 12s Upload (**8 parallel incompressible streams**), featuring TCP slow-start discard, **80% Trimmed Mean** scoring, **Peak (Max Speed)** tracking, **Loaded Ping (Bufferbloat)** testing, and global CDN edge latencies (`Cloudflare`, `Google`, `Quad9`, `OpenDNS`). |
+| **Ookla-Calibrated Speed Benchmark** | Calibrated bandwidth & latency engine supporting **Adaptive Multi-Connection** (4–12 HTTP/1.1 TCP download streams, 3–8 upload streams) and **Single-Connection** (`1 Stream`) modes, pure **1-RTT TCP Handshake (`SYN → SYN-ACK`) Idle Ping & IQR Outlier-Filtered Jitter**, warmup exclusion, **20-Slice Trimmed Mean** scoring, separate **Download & Upload Loaded Latency (Bufferbloat)**, and global Anycast CDN edge matrix (`Cloudflare`, `Google`, `Quad9`, `OpenDNS`). |
 | **Bottleneck & Anomaly Engine** | Automated root-cause heuristics that distinguish harmless control-plane ICMP throttling on intermediate hops from genuine downstream packet loss or ISP peering congestion. |
-| **DNS Inspector & Port Scanner** | Concurrent benchmarking across public and local gateway DNS resolvers (`A`, `AAAA`, `MX`, `TXT`, `NS`, `CNAME`) alongside a 20-worker concurrent TCP handshake port scanner with service detection. |
-| **Official PDF & Report Studio** | Native Windows save-dialog export generating official **Printable HTML / PDF** speed & route reports (featuring the Masar vector logo, telemetry charts, and Peak/Score breakdowns), plus **CSV**, **JSON**, and **Plain-Text** formats. |
-| **Bilingual UI & Adaptive Controls** | Instant **English (LTR)** / **Arabic (RTL)** switching, Dark & Light themes, titlebar zoom scaling (`80%–150%`), and Full/Compact navigation bar toggle. |
+| **DNS Inspector & Port Scanner** | Concurrent benchmarking across public and local gateway DNS resolvers (`A`, `AAAA`, `MX`, `TXT`, `NS`, `CNAME`, `PTR`) alongside a 20-worker concurrent TCP handshake port scanner with service detection. |
+| **Official PDF & Report Studio** | Native Windows save-dialog export generating official **Printable HTML / PDF** speed & route reports (featuring the Masar vector logo, telemetry charts, and Peak/Score breakdowns), plus **CSV** (injection-hardened), **JSON**, and **Plain-Text** formats. |
+| **Refined Dual-Theme & Bilingual UI** | Instant **English (LTR)** / **Arabic (RTL)** switching, zero-distraction **Carbon Slate Dark Mode** & anti-glare **Soft Daylight Mode**, executive startup splash with optional harmonic chime, 60 FPS GPU motion choreography, custom vector iconography, and titlebar zoom scaling (`85%–150%`). |
 
 ---
 
@@ -152,8 +152,10 @@ masar/
 ├── frontend/
 │   └── src/
 │       ├── App.jsx                     # Bilingual workbench UI (MTR, DNS, Ports, Speed Dial & Scorecard)
-│       └── ReportStudio.jsx            # Interactive report preview & export modal
-├── docs/screenshots/                   # Retina PNG interface captures
+│       ├── ReportStudio.jsx            # Interactive report preview & export modal
+│       ├── UpdateManager.jsx           # In-app GitHub release checker & SHA-256 installer
+│       └── motion/                     # 60 FPS GPU motion choreography & tokens
+├── docs/screenshots/                   # Retina PNG interface captures (Dark Mode)
 └── build/windows/installer/project.nsi # Custom NSIS installer script (Masar-Setup.exe)
 ```
 
@@ -208,37 +210,37 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for full details
 
 | الوحدة | التفاصيل التقنية وآلية الفحص |
 | :--- | :--- |
-| **فحص السرعة الدقيق (<bdi>Speed Benchmark</bdi>)** | فحص عميق على مراحل وفق المعايير المعتمدة عالمياً (<bdi>Ookla / Fast.com</bdi>): فحص استجابة الحواف السحابية، ثم **12 قناة تحميل متزامنة** (بحزم <bdi>25MB–50MB</bdi>) و **8 قنوات رفع متزامنة** ببيانات غير قابلة للضغط عبر <bdi>speed.cloudflare.com</bdi>. |
-| **معالجة الشوائب وتحديد الذروة والـ <bdi>Bufferbloat</bdi>** | تجاهل مرحلة التسارع الأولية (<bdi>TCP Slow-Start</bdi>) وحساب **المتوسط المقصوص (<bdi>80% Trimmed Mean</bdi>)** للوصول للسرعة المستقرة الحقيقية، مع عرض **الذروة (أعلى سرعة)** وفحص **الاستجابة تحت الضغط (<bdi>Loaded Ping</bdi>)** لكشف اختناقات الراوتر. |
+| **فحص السرعة المعاير (<bdi>Ookla-Calibrated Speedtest</bdi>)** | فحص تكيّفي بمعايير <bdi>Ookla Speedtest</bdi> يدعم **نمط القنوات المتعددة (<bdi>Multi-Connection</bdi> من 4 إلى 12 قناة <bdi>TCP HTTP/1.1</bdi> للتحميل و3 إلى 8 للرفع)** ونمط **القناة الواحدة (<bdi>Single-Connection</bdi>)** عبر حواف <bdi>Cloudflare Anycast</bdi>. |
+| **دقة استجابة الخمول والتذبذب والـ <bdi>Bufferbloat</bdi>** | قياس نقي لزمن الاستجابة والتذبذب عبر مصافحة <bdi>1-RTT TCP SYN → SYN-ACK</bdi> مباشرة مع فلترة إحصائية رباعية (<bdi>IQR Outlier Rejection</bdi>) لعزل القفزات العابرة، وحساب **متوسط 20 شريحة مشذّب** بعد استبعاد الإحماء، مع قياس منفصل للاستجابة أثناء التحميل والرفع (<bdi>Download / Upload Ping</bdi>). |
 | **تتبع المسار البصري (<bdi>Visual MTR</bdi>)** | إرسال حزم <bdi>ICMPv4 Echo</bdi> منخفضة المستوى لكل قفزة (<bdi>TTL 1–30</bdi>) مع حساب أفضل ومتوسط وأسوأ وآخر استجابة، والتذبذب (<bdi>Jitter</bdi>)، ونسبة الفقد، والموقع الجغرافي واسم مزود الخدمة (<bdi>Geo-IP / ASN</bdi>). |
 | **محرك تصفية الراوترات الصامتة** | خوارزمية تحليل تلقائية تميّز بذكاء بين التجاهل الطبيعي لردود <bdi>ICMP</bdi> في قفزات العبور وبين فقدان الحزم أو الاختناق الحقيقي الذي يؤثر على اتصالك. |
-| **مقارنة <bdi>DNS</bdi> وفاحص المنافذ (<bdi>TCP Ports</bdi>)** | استعلام متوازٍ لسجلات النطاقات (<bdi>A, AAAA, CNAME, MX, NS, TXT</bdi>) مع قياس زمن الاستجابة، وفاحص منافذ متزامن (<bdi>20 اتصالاً في وقت واحد</bdi>) لكشف المنافذ المفتوحة وزمن مصافحتها. |
+| **مقارنة <bdi>DNS</bdi> وفاحص المنافذ (<bdi>TCP Ports</bdi>)** | استعلام متوازٍ لسجلات النطاقات (<bdi>A, AAAA, CNAME, MX, NS, TXT, PTR</bdi>) مع قياس زمن الاستجابة، وفاحص منافذ متزامن (<bdi>20 اتصالاً في وقت واحد</bdi>) لكشف المنافذ المفتوحة وزمن مصافحتها. |
 | **تقارير الـ <bdi>PDF</bdi> الرسمية** | استخراج تقارير فنية عالية الدقة تحمل **شعار مسار الرسمي** وجداول مؤشرات الأداء والتقييم (<bdi>+A</bdi>) بصيغ **<bdi>PDF / HTML</bdi>** و **<bdi>CSV</bdi>** و **<bdi>JSON</bdi>** مع إشعار فوري بمسار حفظ الملف. |
-| **واجهة عربية متكاملة ومرنة** | دعم أصيل للغة العربية (<bdi>RTL</bdi>) والإنجليزية (<bdi>LTR</bdi>)، والوضع الداكن والفاتح، مع أزرار تكبير وتصغير الواجهة (<bdi>80%–150%</bdi>) وخيار القائمة المدمجة أو الكاملة. |
+| **نظام الثيمات الاحترافي والواجهة ثنائية اللغة** | دعم أصيل للعربية (<bdi>RTL</bdi>) والإنجليزية (<bdi>LTR</bdi>)، مع **الوضع الداكن الاحترافي (<bdi>Carbon Slate</bdi>)** الخالي من التشتيت و**الوضع النهاري المريح للعين (<bdi>Soft Daylight</bdi>)**، وشاشة إقلاع تفاعلية مع نغمة اختيارية، وأيقونات <bdi>SVG</bdi> متجهة وتكبير مرن للواجهة (<bdi>85%–150%</bdi>). |
 
 ---
 
 ## 📸 معاينة واجهة البرنامج
 
 ### 1. قياس السرعة والنتيجة النهائية الشاملة (الوضع الداكن)
-> عرض السرعة المستقرة للتحميل والرفع مع **الذروة (أعلى سرعة)**، والاستجابة بدون ضغط وتحت الضغط، والتقييم العام (<bdi>+A</bdi>)، وزر استخراج تقرير <bdi>PDF</bdi>، ومراقبة 4 سحابات عالمية (<bdi>Cloudflare, Google, Quad9, OpenDNS</bdi>).
+> عرض السرعة المستقرة للتحميل والرفع مع **الذروة (أعلى سرعة)**، والاستجابة في الخمول وأثناء التحميل والرفع، والتقييم العام (<bdi>+A</bdi>)، وزر استخراج تقرير <bdi>PDF</bdi>، مع إمكانية التبديل بين **متعدد القنوات** و**قناة واحدة**.
 
 <p align="center">
-  <img src="docs/screenshots/masar-speed-ar.png" alt="قياس السرعة في تطبيق مسار باللغة العربية" width="100%" />
+  <img src="docs/screenshots/masar-speed-ar.png" alt="قياس السرعة في تطبيق مسار باللغة العربية في الوضع الداكن" width="100%" />
 </p>
 
-### 2. تتبع المسار البصري والخريطة الشبكية (الوضع الفاتح)
-> عرض حي لرحلة الحزم عبر 4 مراحل من جهازك حتى الوجهة النهائية، مع جدول تفصيلي لكل قفزة ونسب الفقد ومنحنى الاستجابة لآخر 60 ثانية.
+### 2. تتبع المسار البصري والخريطة الشبكية (الوضع الداكن)
+> عرض حي لرحلة الحزم عبر 4 مراحل من جهازك حتى الوجهة النهائية في الوضع الداكن الاحترافي، مع جدول تفصيلي لكل قفزة ونسب الفقد ومنحنى الاستجابة لآخر 60 ثانية.
 
 <p align="center">
-  <img src="docs/screenshots/masar-arabic-light.png" alt="التتبع البصري للمسار باللغة العربية في الوضع الفاتح" width="100%" />
+  <img src="docs/screenshots/masar-arabic-light.png" alt="التتبع البصري للمسار باللغة العربية في الوضع الداكن" width="100%" />
 </p>
 
-### 3. مركز التقارير الاحترافية وشرح المؤشرات
+### 3. مركز التقارير الاحترافية وشرح المؤشرات (الوضع الداكن)
 > مركز متكامل يترجم أرقام الفحص إلى توصيات واضحة لتقييم الألعاب التنافسية والمكالمات الصوتية وبث <bdi>4K</bdi>، مع خيارات التصدير الرسمية المتعددة.
 
 <p align="center">
-  <img src="docs/screenshots/masar-report-studio.png" alt="مركز التقارير الاحترافية في مسار" width="100%" />
+  <img src="docs/screenshots/masar-report-studio.png" alt="مركز التقارير الاحترافية في مسار في الوضع الداكن" width="100%" />
 </p>
 
 ---
@@ -309,8 +311,10 @@ masar/
 ├── frontend/
 │   └── src/
 │       ├── App.jsx                     # الواجهة الرئيسية ثنائية اللغة (MTR، DNS، المنافذ، السرعة)
-│       └── ReportStudio.jsx            # نافذة معاينة التقارير وشرح جميع المؤشرات
-├── docs/screenshots/                   # لقطات شاشة حديثة عالية الدقة لواجهة التطبيق
+│       ├── ReportStudio.jsx            # نافذة معاينة التقارير وشرح جميع المؤشرات
+│       ├── UpdateManager.jsx           # واجهة التحقق من التحديثات والتثبيت الآمن
+│       └── motion/                     # محرك الانميشن السلس بسرعة 60 إطاراً في الثانية
+├── docs/screenshots/                   # لقطات شاشة حديثة عالية الدقة لواجهة التطبيق بالوضع الداكن
 └── build/windows/installer/project.nsi # سكربت بناء المثبت الرسمي (Masar-Setup.exe)
 ```
 

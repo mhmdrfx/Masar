@@ -94,7 +94,7 @@ const writeStorage = (key, value) => {
 // ---------------------------------------------------------------- store
 let state = {
   status: "idle", // idle | checking | uptodate | available | downloading | error
-  version: "1.0.3",
+  version: "1.0.4",
   info: null,
   progress: null,
   error: "",
@@ -306,12 +306,16 @@ const setAutoCheck = (enabled) => {
   setState({ autoCheck: enabled });
 };
 
+const ALLOWED_RELEASE_URL_PREFIX = "https://github.com/mhmdrfx/masar";
+
 const openReleasePage = (url) => {
-  if (!url) return;
+  if (typeof url !== "string") return;
+  const trimmed = url.trim();
+  if (!trimmed.startsWith(ALLOWED_RELEASE_URL_PREFIX)) return;
   if (window.runtime && typeof window.runtime.BrowserOpenURL === "function") {
-    window.runtime.BrowserOpenURL(url);
+    window.runtime.BrowserOpenURL(trimmed);
   } else {
-    window.open(url, "_blank", "noopener");
+    window.open(trimmed, "_blank", "noopener,noreferrer");
   }
 };
 
@@ -405,7 +409,7 @@ export function UpdateNotifier({ lang = "ar" }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div
-            className={`mt-0.5 h-10 w-10 shrink-0 rounded-2xl flex items-center justify-center text-lg shadow-inner ${
+            className={`mt-0.5 h-10 w-10 shrink-0 rounded-2xl flex items-center justify-center shadow-inner ${
               s.status === "uptodate"
                 ? "bg-emerald-500/20 border border-emerald-500/50 text-emerald-400"
                 : s.status === "error"
@@ -413,7 +417,20 @@ export function UpdateNotifier({ lang = "ar" }) {
                 : "bg-sky-500/20 border border-sky-500/50 text-sky-300"
             }`}
           >
-            {s.status === "uptodate" ? "✓" : s.status === "error" ? "!" : "⬇"}
+            {s.status === "uptodate" ? (
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : s.status === "error" ? (
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v4.5M12 16h.01" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                <path d="M12 4v11m0 0l-4-4m4 4l4-4M4 19h16" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </div>
 
           <div className="space-y-0.5">
@@ -506,9 +523,13 @@ export function UpdateNotifier({ lang = "ar" }) {
             <button
               type="button"
               onClick={installUpdate}
-              className="masar-lift-card active:scale-95 px-4 py-2 rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 hover:from-sky-300 hover:to-cyan-300 text-slate-950 text-xs font-black shadow-lg shadow-sky-500/25 transition-all flex items-center gap-1.5"
+              className="group masar-cta-sheen masar-action-btn active:scale-95 px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 via-sky-400 to-cyan-400 hover:from-sky-400 hover:via-cyan-400 hover:to-emerald-400 text-slate-950 border border-white/25 text-xs font-extrabold tracking-tight shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_20px_-4px_rgba(14,165,233,0.4)] transition-all duration-300 flex items-center gap-2"
             >
-              <span>⬇</span>
+              <span className="h-5 w-5 rounded-lg bg-slate-950/15 text-slate-950 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 group-hover:translate-y-0.5">
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 4v11m0 0l-4-4m4 4l4-4M4 19h16" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
               <span>{tx.installNow}</span>
               {info.sizeBytes > 0 && (
                 <span className="font-mono opacity-80 font-bold" dir="ltr">
@@ -522,7 +543,7 @@ export function UpdateNotifier({ lang = "ar" }) {
             <button
               type="button"
               onClick={() => setState({ cardOpen: false })}
-              className="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition active:scale-95"
+              className="masar-cta-sheen masar-action-btn px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition active:scale-95"
             >
               {lang === "ar" ? "حسناً، فهمت" : "Got it"}
             </button>
@@ -532,9 +553,17 @@ export function UpdateNotifier({ lang = "ar" }) {
             <button
               type="button"
               onClick={() => checkForUpdates({ silent: false })}
-              className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-black transition active:scale-95"
+              className="group masar-cta-sheen masar-action-btn px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 via-sky-400 to-cyan-400 hover:from-sky-400 hover:via-cyan-400 hover:to-emerald-400 text-slate-950 border border-white/25 text-xs font-extrabold transition-all duration-300 active:scale-95 flex items-center gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_20px_-4px_rgba(14,165,233,0.4)]"
             >
-              {tx.retry}
+              <span className="h-5 w-5 rounded-lg bg-slate-950/15 text-slate-950 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-180 group-hover:scale-110">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                  <path d="M21 12a9 9 0 0 0-15.5-6.36L3 8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M3 3v5h5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M3 12a9 9 0 0 0 15.5 6.36L21 16" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M16 16h5v5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <span>{tx.retry}</span>
             </button>
           )}
 
@@ -596,43 +625,73 @@ export function UpdateSettingsPanel({ lang = "ar" }) {
         <p className="text-xs text-slate-400 mt-0.5">{tx.sectionDesc}</p>
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 sm:p-5 space-y-4 shadow-xl">
-        {/* Row 1: Current Version & Animated Check Button */}
+      <div className="masar-well rounded-2xl border border-slate-800/90 bg-slate-950/80 p-4 sm:p-5 space-y-4 shadow-xl">
+        {/* Row 1: Current Version & Executive Vector Check Button */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-sm text-slate-200">
-            <span className="font-medium text-slate-400">{tx.currentVersion}:</span>
-            <span
-              className="font-mono font-extrabold px-2.5 py-0.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm"
-              dir="ltr"
-            >
-              v{s.version || "1.0.0"}
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/25 flex items-center justify-center text-sky-400 shrink-0 shadow-inner">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-200">
+                <span className="font-semibold text-slate-400">{tx.currentVersion}:</span>
+                <span
+                  className="font-mono text-xs font-extrabold px-2.5 py-0.5 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/35 shadow-sm"
+                  dir="ltr"
+                >
+                  v{s.version || "1.0.4"}
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                {lang === "ar"
+                  ? "قناة التحديث الرسمية عبر GitHub • محمية ببصمة SHA-256"
+                  : "Official GitHub Release Channel • SHA-256 Checksum Verified"}
+              </div>
+            </div>
           </div>
 
           <button
             type="button"
             disabled={isChecking || s.status === "downloading"}
             onClick={() => checkForUpdates({ silent: false })}
-            className={`masar-lift-card active:scale-95 px-4 py-2.5 rounded-xl text-xs font-black transition-all duration-200 flex items-center gap-2 shadow-lg ${
+            className={`group masar-cta-sheen masar-action-btn shrink-0 whitespace-nowrap active:scale-95 px-3.5 py-2 rounded-xl text-xs font-bold tracking-tight transition-all duration-300 flex items-center gap-2 border ${
               isChecking
-                ? "bg-sky-500/80 text-slate-950 cursor-wait ring-2 ring-sky-400/50 animate-pulse"
-                : "bg-sky-400 hover:bg-sky-300 text-slate-950 shadow-sky-500/20"
+                ? "bg-sky-500/20 text-sky-200 border-sky-400/50 cursor-wait ring-2 ring-sky-500/25"
+                : "bg-gradient-to-r from-sky-500 via-sky-400 to-cyan-400 hover:from-sky-400 hover:via-cyan-400 hover:to-emerald-400 text-slate-950 border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_16px_-4px_rgba(14,165,233,0.38)]"
             }`}
           >
-            {isChecking ? (
-              <>
-                <svg className="animate-spin h-3.5 w-3.5 text-slate-950" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                </svg>
-                <span>{tx.checking}</span>
-              </>
-            ) : (
-              <>
-                <span className="text-sm">🔄</span>
-                <span>{tx.checkNow}</span>
-              </>
-            )}
+            <span
+              className={`h-4 w-4 shrink-0 rounded-md flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                isChecking
+                  ? "bg-sky-400/20 text-sky-300"
+                  : "bg-slate-950/15 text-slate-950 group-hover:rotate-180 group-hover:scale-110"
+              }`}
+            >
+              <svg
+                className={`w-3 h-3 ${isChecking ? "animate-spin" : ""}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+              >
+                <path
+                  d="M21 12a9 9 0 0 0-15.5-6.36L3 8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path d="M3 3v5h5" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M3 12a9 9 0 0 0 15.5 6.36L21 16"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path d="M16 16h5v5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span>{isChecking ? tx.checking : tx.checkNow}</span>
           </button>
         </div>
 
@@ -640,8 +699,10 @@ export function UpdateSettingsPanel({ lang = "ar" }) {
         {s.status === "uptodate" && (
           <div className="flex items-center justify-between gap-3 text-xs font-bold text-emerald-300 bg-emerald-950/30 border border-emerald-500/40 rounded-xl px-3.5 py-2.5 shadow-inner">
             <div className="flex items-center gap-2">
-              <span className="h-5 w-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[11px] text-emerald-400">
-                ✓
+              <span className="h-5 w-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </span>
               <span>{tx.upToDate}</span>
             </div>
@@ -662,7 +723,9 @@ export function UpdateSettingsPanel({ lang = "ar" }) {
             className="w-full text-start text-xs font-bold text-sky-300 bg-sky-950/40 border border-sky-500/40 rounded-xl px-3.5 py-2.5 hover:bg-sky-900/40 transition flex items-center justify-between"
           >
             <span className="flex items-center gap-2">
-              <span className="text-base">⬇</span>
+              <svg className="w-4 h-4 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                <path d="M12 4v11m0 0l-4-4m4 4l4-4M4 19h16" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
               <span>{tx.availableShort(s.info.latestVersion)}</span>
             </span>
             <span className="text-[11px] text-sky-400 underline">{lang === "ar" ? "افتح البطاقة" : "Open card"} →</span>
@@ -675,17 +738,33 @@ export function UpdateSettingsPanel({ lang = "ar" }) {
           </div>
         )}
 
-        {/* Row 2: Checkbox */}
-        <div className="flex items-center justify-between gap-3 pt-1 border-t border-slate-800/80">
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={s.autoCheck}
-              onChange={(e) => setAutoCheck(e.target.checked)}
-              className="h-4 w-4 rounded accent-sky-500 cursor-pointer"
-            />
-            <span className="text-xs font-medium text-slate-300">{tx.autoCheck}</span>
-          </label>
+        {/* Row 2: Auto-Check Toggle Switch */}
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={s.autoCheck}
+            onClick={() => setAutoCheck(!s.autoCheck)}
+            className="w-full flex items-center justify-between gap-3 cursor-pointer select-none py-1 group"
+          >
+            <span className="text-xs font-medium text-slate-300 group-hover:text-white transition">
+              {tx.autoCheck}
+            </span>
+            <span
+              dir="ltr"
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                s.autoCheck
+                  ? "bg-sky-500 border-sky-400"
+                  : "bg-slate-800 border-slate-700"
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                  s.autoCheck ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </span>
+          </button>
         </div>
 
         {/* Row 3: Meta & Winget hint */}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -137,6 +138,10 @@ type Engine struct {
 	seqCounter uint16
 	maxDestTTL int
 
+	emitMu      sync.Mutex
+	lastEmit    time.Time
+	emitPending bool
+
 	onUpdate func(TraceSnapshot)
 }
 
@@ -252,7 +257,7 @@ func (e *Engine) Run(ctx context.Context) error {
 	}()
 
 	e.sendSweep(ctx, conn, p4)
-	e.emitSnapshot()
+	e.emitSnapshotImmediate()
 
 	pollTicker := time.NewTicker(PollInterval)
 	defer pollTicker.Stop()
@@ -269,12 +274,14 @@ func (e *Engine) Run(ctx context.Context) error {
 			return nil
 		case <-reapTicker.C:
 			if e.reapTimeouts() {
-				e.emitSnapshot()
+				e.emitSnapshotImmediate()
+			} else {
+				e.flushPendingSnapshot()
 			}
 		case <-pollTicker.C:
 			e.reapTimeouts()
 			e.sendSweep(ctx, conn, p4)
-			e.emitSnapshot()
+			e.emitSnapshotImmediate()
 		}
 	}
 }
@@ -652,32 +659,34 @@ func (e *Engine) triggerAsyncGeo(ip string) {
 		info := geoInfo{}
 		if err == nil && resp != nil {
 			defer resp.Body.Close()
-			var payload struct {
-				Status      string `json:"status"`
-				CountryCode string `json:"countryCode"`
-				City        string `json:"city"`
-				ISP         string `json:"isp"`
-				AS          string `json:"as"`
-			}
-			if json.NewDecoder(resp.Body).Decode(&payload) == nil && payload.Status == "success" {
-				locParts := make([]string, 0, 2)
-				if payload.CountryCode != "" {
-					locParts = append(locParts, payload.CountryCode)
+			if resp.StatusCode == http.StatusOK {
+				var payload struct {
+					Status      string `json:"status"`
+					CountryCode string `json:"countryCode"`
+					City        string `json:"city"`
+					ISP         string `json:"isp"`
+					AS          string `json:"as"`
 				}
-				if payload.City != "" {
-					locParts = append(locParts, payload.City)
-				}
-				info.location = strings.Join(locParts, " • ")
-				if payload.AS != "" {
-					fields := strings.Fields(payload.AS)
-					if len(fields) > 0 {
-						info.asn = fields[0]
+				if json.NewDecoder(io.LimitReader(resp.Body, 16*1024)).Decode(&payload) == nil && payload.Status == "success" {
+					locParts := make([]string, 0, 2)
+					if payload.CountryCode != "" {
+						locParts = append(locParts, payload.CountryCode)
 					}
-					if payload.ISP != "" {
-						info.asn = strings.TrimSpace(info.asn + " " + payload.ISP)
+					if payload.City != "" {
+						locParts = append(locParts, payload.City)
 					}
-				} else {
-					info.asn = payload.ISP
+					info.location = strings.Join(locParts, " • ")
+					if payload.AS != "" {
+						fields := strings.Fields(payload.AS)
+						if len(fields) > 0 {
+							info.asn = fields[0]
+						}
+						if payload.ISP != "" {
+							info.asn = strings.TrimSpace(info.asn + " " + payload.ISP)
+						}
+					} else {
+						info.asn = payload.ISP
+					}
 				}
 			}
 		}
@@ -836,10 +845,52 @@ func (e *Engine) Snapshot() TraceSnapshot {
 	}
 }
 
+const minSnapshotEmitInterval = 85 * time.Millisecond
+
 func (e *Engine) emitSnapshot() {
-	if e.onUpdate != nil {
-		e.onUpdate(e.Snapshot())
+	if e.onUpdate == nil {
+		return
 	}
+	now := time.Now()
+	e.emitMu.Lock()
+	if !e.lastEmit.IsZero() && now.Sub(e.lastEmit) < minSnapshotEmitInterval {
+		e.emitPending = true
+		e.emitMu.Unlock()
+		return
+	}
+	e.lastEmit = now
+	e.emitPending = false
+	e.emitMu.Unlock()
+
+	e.onUpdate(e.Snapshot())
+}
+
+func (e *Engine) emitSnapshotImmediate() {
+	if e.onUpdate == nil {
+		return
+	}
+	e.emitMu.Lock()
+	e.lastEmit = time.Now()
+	e.emitPending = false
+	e.emitMu.Unlock()
+
+	e.onUpdate(e.Snapshot())
+}
+
+func (e *Engine) flushPendingSnapshot() {
+	if e.onUpdate == nil {
+		return
+	}
+	e.emitMu.Lock()
+	if !e.emitPending {
+		e.emitMu.Unlock()
+		return
+	}
+	e.lastEmit = time.Now()
+	e.emitPending = false
+	e.emitMu.Unlock()
+
+	e.onUpdate(e.Snapshot())
 }
 
 // EvaluateHealth analyzes local gateway, ISP aggregation hops, and the destination hop.

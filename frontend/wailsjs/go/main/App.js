@@ -46,12 +46,20 @@ export function GetLastSpeedSnapshot() {
   return window['go']['main']['App']['GetLastSpeedSnapshot']();
 }
 
+export function GetSpeedMeta() {
+  return window['go']['main']['App']['GetSpeedMeta']();
+}
+
 export function IsRunning() {
   return window['go']['main']['App']['IsRunning']();
 }
 
 export function IsSpeedRunning() {
   return window['go']['main']['App']['IsSpeedRunning']();
+}
+
+export function PlayStartupChime() {
+  return window['go']['main']['App']['PlayStartupChime']();
 }
 
 export function RunDNSLookup(arg1) {
@@ -68,6 +76,10 @@ export function RunSpeedBenchmark() {
 
 export function StartSpeedBenchmark() {
   return window['go']['main']['App']['StartSpeedBenchmark']();
+}
+
+export function StartSpeedBenchmarkWithMode(arg1) {
+  return window['go']['main']['App']['StartSpeedBenchmarkWithMode'](arg1);
 }
 
 export function StartTrace(arg1) {

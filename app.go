@@ -18,6 +18,7 @@ import (
 // App struct manages the Wails application lifecycle, active MTR Engine session, and Multi-Tools.
 type App struct {
 	ctx          context.Context
+	traceOpMu    sync.Mutex
 	mu           sync.Mutex
 	cancelTrace  context.CancelFunc
 	traceDone    chan struct{}
@@ -25,10 +26,12 @@ type App struct {
 	running      bool
 	lastSnapshot mtr.TraceSnapshot
 
+	speedOpMu     sync.Mutex
 	speedMu       sync.Mutex
 	cancelSpeed   context.CancelFunc
 	speedDone     chan struct{}
 	speedSeq      uint64
+	speedEventSeq uint64
 	speedActive   bool
 	lastSpeedSnap nettools.SpeedSnapshot
 }
@@ -43,10 +46,20 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
+// PlayStartupChime plays the calm harmonic Masar startup chime asynchronously.
+func (a *App) PlayStartupChime() {
+	playNativeStartupChime()
+}
+
 // shutdown is called when the Wails app is closing.
 func (a *App) shutdown(ctx context.Context) {
+	a.traceOpMu.Lock()
 	a.stopTraceInternal(false)
+	a.traceOpMu.Unlock()
+
+	a.speedOpMu.Lock()
 	a.stopSpeedInternal(false)
+	a.speedOpMu.Unlock()
 }
 
 // StartTrace stops any running trace and launches a new real-time MTR session for target.
@@ -55,6 +68,9 @@ func (a *App) StartTrace(target string) error {
 	if cleanTarget == "" {
 		return errors.New("please enter a valid IPv4 address or hostname")
 	}
+
+	a.traceOpMu.Lock()
+	defer a.traceOpMu.Unlock()
 
 	a.stopTraceInternal(false)
 
@@ -91,6 +107,12 @@ func (a *App) StartTrace(target string) error {
 	initialSnap.Running = true
 
 	a.mu.Lock()
+	if a.traceSeq != mySeq {
+		a.mu.Unlock()
+		cancel()
+		close(doneCh)
+		return nil
+	}
 	a.cancelTrace = cancel
 	a.traceDone = doneCh
 	a.running = true
@@ -135,6 +157,8 @@ func (a *App) StartTrace(target string) error {
 
 // StopTrace halts the active MTR trace session if one is running.
 func (a *App) StopTrace() {
+	a.traceOpMu.Lock()
+	defer a.traceOpMu.Unlock()
 	a.stopTraceInternal(true)
 }
 
@@ -189,7 +213,20 @@ func (a *App) GetLastSnapshot() mtr.TraceSnapshot {
 
 // StartSpeedBenchmark starts the continuous live multi-stream speed & edge latency benchmark.
 func (a *App) StartSpeedBenchmark() error {
+	return a.StartSpeedBenchmarkWithMode("multi")
+}
+
+// StartSpeedBenchmarkWithMode starts the Ookla-calibrated live speed benchmark in "multi" or "single" TCP mode.
+func (a *App) StartSpeedBenchmarkWithMode(mode string) error {
+	a.speedOpMu.Lock()
+	defer a.speedOpMu.Unlock()
+
 	a.stopSpeedInternal(false)
+
+	cleanMode := strings.ToLower(strings.TrimSpace(mode))
+	if cleanMode != "single" {
+		cleanMode = "multi"
+	}
 
 	speedCtx, cancel := context.WithCancel(context.Background())
 	doneCh := make(chan struct{})
@@ -197,25 +234,36 @@ func (a *App) StartSpeedBenchmark() error {
 	a.speedMu.Lock()
 	a.speedSeq++
 	mySeq := a.speedSeq
+	a.speedEventSeq++
 	a.cancelSpeed = cancel
 	a.speedDone = doneCh
 	a.speedActive = true
-	a.lastSpeedSnap.Running = true
+	a.lastSpeedSnap = nettools.SpeedSnapshot{
+		Seq:            a.speedEventSeq,
+		Running:        true,
+		Phase:          "ping",
+		ConnectionMode: cleanMode,
+		Progress:       1,
+	}
+	initSnap := a.lastSpeedSnap
 	a.speedMu.Unlock()
 
 	if a.ctx != nil {
 		runtime.EventsEmit(a.ctx, "speed:status", map[string]interface{}{
 			"running": true,
 		})
+		runtime.EventsEmit(a.ctx, "speed:update", initSnap)
 	}
 
 	go func() {
 		defer close(doneCh)
-		nettools.RunLiveSpeedBenchmark(speedCtx, func(snap nettools.SpeedSnapshot) {
+		nettools.RunLiveSpeedBenchmarkWithMode(speedCtx, cleanMode, func(snap nettools.SpeedSnapshot) {
 			a.speedMu.Lock()
 			active := a.speedSeq == mySeq && a.speedActive
 			if active {
-				if snap.Completed {
+				a.speedEventSeq++
+				snap.Seq = a.speedEventSeq
+				if snap.Completed || snap.Error != "" {
 					snap.Running = false
 				} else {
 					snap.Running = true
@@ -230,13 +278,16 @@ func (a *App) StartSpeedBenchmark() error {
 
 		a.speedMu.Lock()
 		isCurrent := a.speedSeq == mySeq
+		var finalSnap nettools.SpeedSnapshot
 		if isCurrent {
 			a.speedActive = false
+			a.speedEventSeq++
+			a.lastSpeedSnap.Seq = a.speedEventSeq
 			a.lastSpeedSnap.Running = false
 			a.cancelSpeed = nil
 			a.speedDone = nil
+			finalSnap = a.lastSpeedSnap
 		}
-		finalSnap := a.lastSpeedSnap
 		a.speedMu.Unlock()
 
 		if isCurrent && a.ctx != nil {
@@ -250,20 +301,32 @@ func (a *App) StartSpeedBenchmark() error {
 	return nil
 }
 
+// GetSpeedMeta retrieves client ISP identity and active Anycast test server metadata for idle preview.
+func (a *App) GetSpeedMeta() nettools.SpeedMeta {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	return nettools.FetchSpeedMeta(ctx)
+}
+
 // StopSpeedBenchmark stops the continuous live speed benchmark.
 func (a *App) StopSpeedBenchmark() {
+	a.speedOpMu.Lock()
+	defer a.speedOpMu.Unlock()
 	a.stopSpeedInternal(true)
 }
 
 func (a *App) stopSpeedInternal(emitStatus bool) {
 	a.speedMu.Lock()
 	a.speedSeq++
+	a.speedEventSeq++
 	cancel := a.cancelSpeed
 	done := a.speedDone
 	a.cancelSpeed = nil
 	a.speedDone = nil
 	a.speedActive = false
+	a.lastSpeedSnap.Seq = a.speedEventSeq
 	a.lastSpeedSnap.Running = false
+	stoppedSnap := a.lastSpeedSnap
 	a.speedMu.Unlock()
 
 	if cancel != nil {
@@ -273,7 +336,7 @@ func (a *App) stopSpeedInternal(emitStatus bool) {
 	if done != nil {
 		select {
 		case <-done:
-		case <-time.After(400 * time.Millisecond):
+		case <-time.After(1000 * time.Millisecond):
 		}
 	}
 
@@ -281,6 +344,7 @@ func (a *App) stopSpeedInternal(emitStatus bool) {
 		runtime.EventsEmit(a.ctx, "speed:status", map[string]interface{}{
 			"running": false,
 		})
+		runtime.EventsEmit(a.ctx, "speed:update", stoppedSnap)
 	}
 }
 

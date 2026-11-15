@@ -81,7 +81,40 @@ var currentAppVersion = func() string {
 	return normalizeVersion(cfg.Info.ProductVersion)
 }()
 
-var updateHTTPClient = &http.Client{Timeout: 15 * time.Minute}
+var updateHTTPClient = &http.Client{
+	Timeout: 15 * time.Minute,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 6 {
+			return errors.New("too many redirects while downloading update")
+		}
+		if req.URL == nil || !strings.EqualFold(req.URL.Scheme, "https") {
+			return errors.New("refusing non-HTTPS redirect during update")
+		}
+		host := strings.ToLower(req.URL.Hostname())
+		if host != "github.com" &&
+			host != "api.github.com" &&
+			host != "objects.githubusercontent.com" &&
+			host != "release-assets.githubusercontent.com" &&
+			!strings.HasSuffix(host, ".githubusercontent.com") {
+			return fmt.Errorf("refusing redirect to untrusted update host: %s", host)
+		}
+		return nil
+	},
+}
+
+func sanitizeVersionFilenameToken(v string) string {
+	var b strings.Builder
+	for _, r := range strings.TrimSpace(v) {
+		if (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '.' || r == '-' || r == '_' {
+			b.WriteRune(r)
+		}
+	}
+	res := strings.Trim(b.String(), "._-")
+	if res == "" {
+		return "latest"
+	}
+	return res
+}
 
 // GetAppVersion returns the running application version (e.g. "1.1.0").
 func (a *App) GetAppVersion() string {
@@ -147,7 +180,8 @@ func (a *App) DownloadAndInstallUpdate() error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	installerPath := filepath.Join(dir, fmt.Sprintf("Masar-Setup-%s.exe", latest.LatestVersion))
+	safeVer := sanitizeVersionFilenameToken(latest.LatestVersion)
+	installerPath := filepath.Join(dir, fmt.Sprintf("Masar-Setup-%s.exe", safeVer))
 
 	actualHash, err := a.downloadInstaller(ctx, latest.DownloadURL, installerPath, latest.SizeBytes)
 	if err != nil {

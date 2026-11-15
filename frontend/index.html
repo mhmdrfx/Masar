@@ -21,9 +21,41 @@
         }
       } catch (_) {}
     </script>
+    <style>
+      #masar-preboot {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #050811;
+        color: #f8fafc;
+        font-family: "IBM Plex Sans Arabic", "Inter", system-ui, sans-serif;
+        z-index: 9999;
+      }
+      html.theme-light #masar-preboot {
+        background: #f8fafc;
+        color: #0f172a;
+      }
+    </style>
   </head>
   <body class="bg-slate-950 text-slate-100 antialiased">
-    <div id="root"></div>
+    <div id="root">
+      <div id="masar-preboot">
+        <svg width="84" height="84" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 18px 34px rgba(14,165,233,0.34));">
+          <defs>
+            <linearGradient id="preGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#06b6d4" />
+              <stop offset="50%" stop-color="#3b82f6" />
+              <stop offset="100%" stop-color="#10b981" />
+            </linearGradient>
+          </defs>
+          <rect x="1.5" y="1.5" width="97" height="97" rx="24.5" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" />
+          <path d="M18 72C18 42 25 24 35 24C45 24 47 52 50 52C53 52 55 24 65 24C75 24 82 42 82 72C74 72 69 58 65 40C61 52 57 69 50 69C43 69 39 52 35 40C31 58 26 72 18 72Z" fill="url(#preGrad)" />
+        </svg>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -32,20 +32,54 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 		up = snap.UploadMbps
 	}
 	ping := snap.PingMs
-	loadedPing := snap.LoadedPingMs
-	if loadedPing == 0 && ping > 0 {
-		loadedPing = ping + 3.8
+	downPing := snap.DownloadLatencyMs
+	if downPing == 0 {
+		downPing = snap.LoadedPingMs
+	}
+	if downPing == 0 {
+		downPing = ping
+	}
+	upPing := snap.UploadLatencyMs
+	if upPing == 0 {
+		upPing = snap.LoadedPingMs
+	}
+	if upPing == 0 {
+		upPing = ping
 	}
 	jitter := snap.JitterMs
-
-	grade := "B"
-	gradeColor := "#f59e0b"
-	gradeBg := "#fef3c7"
-	gradeText := "جيد — كافٍ للتصفح والعمل المكتبي والبث بجودة Full HD"
-	if !isAr {
-		gradeText = "Fair — Suitable for browsing, remote office work, and 1080p streaming"
+	isSingleMode := strings.EqualFold(strings.TrimSpace(snap.ConnectionMode), "single")
+	modeLabel := "Multi-Connection (Adaptive)"
+	if isSingleMode {
+		modeLabel = "Single Connection (1 Stream)"
 	}
-	if down >= 100 && ping <= 35 {
+	if isAr {
+		if isSingleMode {
+			modeLabel = "قناة واحدة (Single Stream)"
+		} else {
+			modeLabel = "متعدد القنوات التكيّفي (Multi-Connection)"
+		}
+	}
+	serverLabel := snap.ServerName
+	if serverLabel == "" {
+		serverLabel = "Cloudflare Anycast CDN"
+	}
+	ispLabel := snap.ClientISP
+	if ispLabel == "" {
+		if isAr {
+			ispLabel = "المزود التلقائي للاتصال"
+		} else {
+			ispLabel = "Detected ISP Network"
+		}
+	}
+
+	grade := "C"
+	gradeColor := "#e11d48"
+	gradeBg := "#ffe4e6"
+	gradeText := "محدود — مناسب للمهام الأساسية فقط وقد يتأثر عند ضغط الاستخدام"
+	if !isAr {
+		gradeText = "Limited — Suitable for basic browsing; heavy media or gaming may experience congestion"
+	}
+	if down >= 100 && up >= 25 && ping > 0 && ping <= 40 && snap.PacketLoss < 1 {
 		grade = "A+"
 		gradeColor = "#059669"
 		gradeBg = "#d1fae5"
@@ -54,7 +88,7 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 		} else {
 			gradeText = "Excellent — Fiber-grade performance, ideal for competitive gaming and 4K/8K streaming"
 		}
-	} else if down >= 30 {
+	} else if down >= 35 && up >= 8 && ping > 0 && ping <= 85 && snap.PacketLoss < 2 {
 		grade = "A"
 		gradeColor = "#0284c7"
 		gradeBg = "#e0f2fe"
@@ -63,62 +97,80 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 		} else {
 			gradeText = "Very Good — Fast, reliable line meeting all home-office and HD video requirements"
 		}
+	} else if down >= 12 && snap.PacketLoss < 5 {
+		grade = "B"
+		gradeColor = "#f59e0b"
+		gradeBg = "#fef3c7"
+		if isAr {
+			gradeText = "جيد — كافٍ للتصفح والعمل المكتبي والبث بجودة Full HD"
+		} else {
+			gradeText = "Fair — Suitable for browsing, remote office work, and 1080p streaming"
+		}
 	}
 
 	nowFormatted := time.Now().Format("2006-01-02 15:04:05 MST")
 	appVer := currentAppVersion
 	if appVer == "" {
-		appVer = "1.0.3"
+		appVer = "1.0.4"
 	}
 
 	var (
 		docTitle, printBtnText, sec1Title, sec2Title, sec3Title, sec4Title string
-		lblDown, lblUp, lblIdlePing, lblLoadedPing, lblJitter, lblDataUsed  string
-		thEdge, thEndpoint, thLatency, thJitter, thStatus                   string
-		methodologyTitle, methodologyDesc, footerCredits                    string
+		lblDown, lblUp, lblIdlePing, lblDownPing, lblUpPing, lblJitter     string
+		lblDataUsed, lblLoss, lblMode, lblServerIsp                        string
+		thEdge, thEndpoint, thLatency, thJitter, thStatus                  string
+		methodologyTitle, methodologyDesc, footerCredits                   string
 	)
 
 	if isAr {
 		docTitle = "مسار — التقرير الرسمي الشامل لفحص سرعة الاتصال والأداء الشبكي"
 		printBtnText = "حفظ كملف PDF / طباعة التقرير"
 		sec1Title = "أولاً: الملخص التنفيذي وسرعات الاتصال المعتمدة"
-		sec2Title = "ثانياً: مؤشرات زمن الاستجابة وجودة الخط تحت الضغط (Bufferbloat)"
+		sec2Title = "ثانياً: مؤشرات زمن الاستجابة وجودة الخط تحت الضغط (Loaded Latency)"
 		sec3Title = "ثالثاً: مصفوفة زمن الاستجابة نحو خوادم الحوسبة السحابية (Anycast Edges)"
-		sec4Title = "رابعاً: معايير ومنهجية الفحص المطبقة (مطابقة لمعايير Ookla / Fast.com)"
+		sec4Title = "رابعاً: معايير ومنهجية الفحص المطبقة (مطابقة لمعايير Ookla Speedtest)"
 		lblDown = "سرعة التحميل المستدامة"
 		lblUp = "سرعة الرفع المستدامة"
-		lblIdlePing = "زمن الاستجابة (بدون ضغط)"
-		lblLoadedPing = "الاستجابة تحت الضغط (Bufferbloat)"
+		lblIdlePing = "زمن الاستجابة (Idle Ping)"
+		lblDownPing = "الاستجابة أثناء التحميل (Download Ping)"
+		lblUpPing = "الاستجابة أثناء الرفع (Upload Ping)"
 		lblJitter = "تذبذب الاستجابة (Jitter)"
 		lblDataUsed = "حجم البيانات المستخدمة"
+		lblLoss = "فقد الحزم (Loss)"
+		lblMode = "نمط الاتصال المستخدم"
+		lblServerIsp = "مزود الخدمة وخادم الفحص"
 		thEdge = "شبكة الخوادم الحافة"
 		thEndpoint = "نقطة الاتصال"
 		thLatency = "متوسط الاستجابة"
 		thJitter = "أفضل استجابة"
 		thStatus = "الحالة التشغيلية"
-		methodologyTitle = "فحص عميق متعدد القنوات مع استبعاد فترة الإحماء"
-		methodologyDesc = "تم تنفيذ الفحص عبر إشباع الخط بـ 12 قناة تحميل متوازية و 8 قنوات رفع متوازية على مدى 31 ثانية كاملة. استُبعدت أول 3 ثوانٍ من الفحص (TCP Slow-Start Ramp-up) لتفادي الانخفاض اللحظي لبدء الاتصال، ثم طُبّق المتوسط المشذّب (80% Trimmed Mean) باستبعاد أدنى 15% وأعلى 5% لضمان إخراج السرعة المستدامة الفعلية المطابقة للمقاييس العالمية."
+		methodologyTitle = "قياس تكيّفي متعدد القنوات وفق معايير Speedtest القياسية"
+		methodologyDesc = "طُبّق الفحص وفق منهجية Ookla القياسية: اختبار أولي لتحديد سعة الخط وتهيئة القنوات (HTTP/1.1 TCP المستقلة)، ثم تقسيم مرحلة الاستقرار إلى 20 شريحة زمنية لكل من التحميل والرفع بعد استبعاد فترة الإحماء (TCP Slow-Start)، واستبعاد أبطأ 30% من الشرائح وأسرع 10% وحساب متوسط الشريحة الوسطى (60%) لضمان نتيجة ثابتة ومستقرة تماماً."
 		footerCredits = fmt.Sprintf("تم استخراج هذا التقرير الرسمي عبر برنامج مسار (الإصدار %s) — تطوير @mhmdrfx • صُنع بكل إتقان", appVer)
 	} else {
 		docTitle = "Masar — Official Speed Benchmark & Network Capacity Report"
 		printBtnText = "Save as PDF / Print Official Report"
 		sec1Title = "1. Executive Summary & Certified Line Speeds"
-		sec2Title = "2. Latency Telemetry & Bufferbloat Under Traffic"
+		sec2Title = "2. Idle & Loaded Latency Breakdown (Bufferbloat)"
 		sec3Title = "3. Anycast Cloud Edge Latency Matrix"
-		sec4Title = "4. Benchmark Methodology & Industry Standards"
+		sec4Title = "4. Benchmark Methodology & Ookla Standards"
 		lblDown = "Sustained Download"
 		lblUp = "Sustained Upload"
 		lblIdlePing = "Idle Ping"
-		lblLoadedPing = "Loaded Ping (Bufferbloat)"
+		lblDownPing = "Download Latency"
+		lblUpPing = "Upload Latency"
 		lblJitter = "Ping Jitter"
 		lblDataUsed = "Total Data Transferred"
+		lblLoss = "Packet Loss"
+		lblMode = "Connection Mode"
+		lblServerIsp = "ISP & Test Server"
 		thEdge = "Edge Provider"
 		thEndpoint = "Endpoint"
 		thLatency = "Avg Latency"
 		thJitter = "Best RTT"
 		thStatus = "Operational Status"
-		methodologyTitle = "Multi-Stream Deep Saturation with Ramp-Up Discard"
-		methodologyDesc = "This test utilized 12 parallel download streams and 8 parallel upload streams over a sustained 31-second duration. The first 3.0 seconds (TCP slow-start) were systematically discarded, and an 80% trimmed mean was computed to eliminate Wi-Fi jitter dips and burst anomalies, adhering strictly to Ookla and Fast.com whitepaper standards."
+		methodologyTitle = "Adaptive HTTP/1.1 TCP Calibration with 20-Slice Trimmed Mean"
+		methodologyDesc = "This benchmark follows Ookla Speedtest standards: pre-test bandwidth calibration across independent HTTP/1.1 TCP streams, warm-up slow-start discard, and 20 equal steady-state time slices per direction where the slowest 30% and fastest 10% of slices are trimmed to compute the sustained middle-60% score."
 		footerCredits = fmt.Sprintf("Generated by Masar Visual Network Diagnostics (%s) — @mhmdrfx", appVer)
 	}
 
@@ -135,19 +187,27 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 
 	var edgeRows strings.Builder
 	for _, ep := range snap.EdgePings {
+		statusBg := "#dcfce7"
+		statusFg := "#15803d"
+		if !strings.EqualFold(ep.Status, "online") {
+			statusBg = "#fee2e2"
+			statusFg = "#b91c1c"
+		}
 		edgeRows.WriteString(fmt.Sprintf(`
 			<tr>
 				<td style="font-weight:700">%s</td>
 				<td dir="ltr" style="font-family:monospace;color:#64748b">%s</td>
 				<td dir="ltr" style="font-weight:700;color:#0284c7">%s</td>
 				<td dir="ltr" style="color:#7c3aed">%s</td>
-				<td><span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d">%s</span></td>
+				<td><span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:%s;color:%s">%s</span></td>
 			</tr>
 		`,
 			html.EscapeString(ep.Provider),
 			html.EscapeString(ep.Endpoint),
 			fmt.Sprintf("%.1f ms", ep.AvgMs),
 			fmt.Sprintf("%.1f ms", ep.BestMs),
+			statusBg,
+			statusFg,
 			html.EscapeString(strings.ToUpper(ep.Status)),
 		))
 	}
@@ -207,14 +267,17 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 <div class="report-container">
   <div class="header">
     <div class="brand">
-      <svg width="46" height="46" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="border-radius:12px;box-shadow:0 2px 8px rgba(2,132,199,0.15);flex-shrink:0">
+      <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,0.06);flex-shrink:0">
         <defs>
           <linearGradient id="msg" x1="0%%" y1="0%%" x2="100%%" y2="100%%">
             <stop offset="0%%" stop-color="#06b6d4"/><stop offset="50%%" stop-color="#3b82f6"/><stop offset="100%%" stop-color="#10b981"/>
           </linearGradient>
+          <filter id="msgShadow" x="-10%%" y="-10%%" width="120%%" height="130%%" filterUnits="userSpaceOnUse">
+            <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0284c7" flood-opacity="0.28"/>
+          </filter>
         </defs>
-        <rect x="1.5" y="1.5" width="97" height="97" rx="24" fill="#0f172a" stroke="#0ea5e9" stroke-width="2.5"/>
-        <path d="M18 72C18 42 25 24 35 24C45 24 47 52 50 52C53 52 55 24 65 24C75 24 82 42 82 72C74 72 69 58 65 40C61 52 57 69 50 69C43 69 39 52 35 40C31 58 26 72 18 72Z" fill="url(#msg)"/>
+        <rect x="1.5" y="1.5" width="97" height="97" rx="24.5" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+        <path d="M18 72C18 42 25 24 35 24C45 24 47 52 50 52C53 52 55 24 65 24C75 24 82 42 82 72C74 72 69 58 65 40C61 52 57 69 50 69C43 69 39 52 35 40C31 58 26 72 18 72Z" fill="url(#msg)" filter="url(#msgShadow)"/>
       </svg>
       <div>
         <div class="brand-title">MASAR • مسار</div>
@@ -237,17 +300,17 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
     <div class="hero-card" style="border-top: 4px solid #0284c7">
       <div class="hero-title" style="color:#0284c7">%s</div>
       <div class="hero-val" style="color:#0284c7">%.1f</div>
-      <div class="hero-unit">Mbps (12 Streams)</div>
+      <div class="hero-unit">Mbps • ↓ %.1f ms</div>
     </div>
     <div class="hero-card" style="border-top: 4px solid #10b981">
       <div class="hero-title" style="color:#10b981">%s</div>
       <div class="hero-val" style="color:#10b981">%.1f</div>
-      <div class="hero-unit">Mbps (8 Streams)</div>
+      <div class="hero-unit">Mbps • ↑ %.1f ms</div>
     </div>
     <div class="hero-card" style="border-top: 4px solid #f59e0b">
       <div class="hero-title" style="color:#f59e0b">%s</div>
       <div class="hero-val" style="color:#f59e0b">%.1f</div>
-      <div class="hero-unit">ms (Idle RTT)</div>
+      <div class="hero-unit">ms (Idle) • Jitter %.1f ms</div>
     </div>
   </div>
 
@@ -255,13 +318,13 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
   <table class="kpi-table">
     <tr>
       <th>%s</th>
-      <td dir="ltr" style="font-weight:700;color:#f59e0b">%.1f ms</td>
+      <td dir="ltr" style="font-weight:700;color:#0284c7">%.1f ms</td>
       <th>%s</th>
-      <td dir="ltr" style="font-weight:700;color:#ea580c">%.1f ms</td>
+      <td dir="ltr" style="font-weight:700;color:#10b981">%.1f ms</td>
     </tr>
     <tr>
       <th>%s</th>
-      <td dir="ltr" style="font-weight:700;color:#7c3aed">%.1f ms</td>
+      <td dir="ltr" style="font-weight:700;color:#7c3aed">%.1f ms (Loss %.1f%%)</td>
       <th>%s</th>
       <td dir="ltr" style="font-weight:700">%.1f MB</td>
     </tr>
@@ -270,6 +333,12 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
       <td dir="ltr" style="font-weight:700;color:#0284c7">%.1f Mbps</td>
       <th>%s</th>
       <td dir="ltr" style="font-weight:700;color:#10b981">%.1f Mbps</td>
+    </tr>
+    <tr>
+      <th>%s</th>
+      <td style="font-weight:700">%s</td>
+      <th>%s</th>
+      <td style="font-weight:600">%s → %s</td>
     </tr>
   </table>
 
@@ -310,16 +379,18 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 		perfRatingTitle, grade,
 		html.EscapeString(gradeText),
 		html.EscapeString(sec1Title),
-		html.EscapeString(lblDown), down,
-		html.EscapeString(lblUp), up,
-		html.EscapeString(lblIdlePing), ping,
+		html.EscapeString(lblDown), down, downPing,
+		html.EscapeString(lblUp), up, upPing,
+		html.EscapeString(lblIdlePing), ping, jitter,
 		html.EscapeString(sec2Title),
-		html.EscapeString(lblIdlePing), ping,
-		html.EscapeString(lblLoadedPing), loadedPing,
-		html.EscapeString(lblJitter), jitter,
+		html.EscapeString(lblDownPing), downPing,
+		html.EscapeString(lblUpPing), upPing,
+		html.EscapeString(lblJitter+" / "+lblLoss), jitter, snap.PacketLoss,
 		html.EscapeString(lblDataUsed), snap.TotalMB,
 		peakDownTitle, snap.PeakDownloadMbps,
 		peakUpTitle, snap.PeakUploadMbps,
+		html.EscapeString(lblMode), html.EscapeString(modeLabel),
+		html.EscapeString(lblServerIsp), html.EscapeString(ispLabel), html.EscapeString(serverLabel),
 		html.EscapeString(sec3Title),
 		html.EscapeString(thEdge),
 		html.EscapeString(thEndpoint),

@@ -274,11 +274,35 @@ export namespace nettools {
 		    return a;
 		}
 	}
+	export class SpeedMeta {
+	    clientIp: string;
+	    clientIsp: string;
+	    clientLocation: string;
+	    serverName: string;
+	    serverLocation: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpeedMeta(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.clientIp = source["clientIp"];
+	        this.clientIsp = source["clientIsp"];
+	        this.clientLocation = source["clientLocation"];
+	        this.serverName = source["serverName"];
+	        this.serverLocation = source["serverLocation"];
+	    }
+	}
 	export class SpeedSnapshot {
+	    seq: number;
 	    running: boolean;
 	    completed: boolean;
 	    progress: number;
 	    phase: string;
+	    error?: string;
+	    connectionMode: string;
+	    activeStreams: number;
 	    downloadMbps: number;
 	    peakDownloadMbps: number;
 	    finalDownloadMbps: number;
@@ -287,9 +311,18 @@ export namespace nettools {
 	    finalUploadMbps: number;
 	    pingMs: number;
 	    bestPingMs: number;
+	    maxPingMs: number;
 	    loadedPingMs: number;
+	    downloadLatencyMs: number;
+	    uploadLatencyMs: number;
 	    jitterMs: number;
+	    packetLoss: number;
 	    totalMB: number;
+	    clientIp: string;
+	    clientIsp: string;
+	    clientLocation: string;
+	    serverName: string;
+	    serverLocation: string;
 	    downloadHistory: number[];
 	    uploadHistory: number[];
 	    pingHistory: number[];
@@ -302,10 +335,14 @@ export namespace nettools {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.seq = source["seq"];
 	        this.running = source["running"];
 	        this.completed = source["completed"];
 	        this.progress = source["progress"];
 	        this.phase = source["phase"];
+	        this.error = source["error"];
+	        this.connectionMode = source["connectionMode"];
+	        this.activeStreams = source["activeStreams"];
 	        this.downloadMbps = source["downloadMbps"];
 	        this.peakDownloadMbps = source["peakDownloadMbps"];
 	        this.finalDownloadMbps = source["finalDownloadMbps"];
@@ -314,9 +351,18 @@ export namespace nettools {
 	        this.finalUploadMbps = source["finalUploadMbps"];
 	        this.pingMs = source["pingMs"];
 	        this.bestPingMs = source["bestPingMs"];
+	        this.maxPingMs = source["maxPingMs"];
 	        this.loadedPingMs = source["loadedPingMs"];
+	        this.downloadLatencyMs = source["downloadLatencyMs"];
+	        this.uploadLatencyMs = source["uploadLatencyMs"];
 	        this.jitterMs = source["jitterMs"];
+	        this.packetLoss = source["packetLoss"];
 	        this.totalMB = source["totalMB"];
+	        this.clientIp = source["clientIp"];
+	        this.clientIsp = source["clientIsp"];
+	        this.clientLocation = source["clientLocation"];
+	        this.serverName = source["serverName"];
+	        this.serverLocation = source["serverLocation"];
 	        this.downloadHistory = source["downloadHistory"];
 	        this.uploadHistory = source["uploadHistory"];
 	        this.pingHistory = source["pingHistory"];

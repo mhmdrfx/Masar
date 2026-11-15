@@ -9,6 +9,13 @@ import {
   UpdateSettingsPanel,
   useAppVersion,
 } from "./UpdateManager.jsx";
+import StatusLottie from "./motion/StatusLottie.jsx";
+import {
+  TabStage,
+  AnimatedModal,
+  GoDataLoader,
+  MorphLabel,
+} from "./motion/MotionPrimitives.jsx";
 
 const PRESETS = [
   { labelEn: "Google DNS", labelAr: "خادم جوجل", value: "8.8.8.8" },
@@ -93,10 +100,10 @@ const I18N = {
     portDuration: "Scan Duration",
     stateOpen: "OPEN",
     stateClosed: "CLOSED",
-    speedTitle: "Speed Benchmark & Global Edge Latency",
-    speedDesc: "Full-duration deep saturation benchmark (Ping, Download 12x Streams, Upload 8x Streams) with Ookla-standard ramp-up discard and trimmed mean scoring.",
+    speedTitle: "Speedtest • Bandwidth & Edge Latency",
+    speedDesc: "Ookla-standard calibrated test (Idle/Loaded Ping, Adaptive HTTP/1.1 TCP Streams, 20-Slice Trimmed Mean).",
     speedStartBtn: "Start Test",
-    speedStopBtn: "Cancel Test",
+    speedStopBtn: "Stop Test",
     speedGoBtn: "GO",
     speedTesting: "Testing...",
     speedTestAgain: "Test Again",
@@ -108,18 +115,34 @@ const I18N = {
     speedUp: "Upload",
     speedPing: "Ping",
     speedLoadedPing: "Loaded Ping",
+    speedDownPing: "Download Ping",
+    speedUpPing: "Upload Ping",
     speedIdlePing: "Idle Ping",
-    speedDurationHint: "Deep 31-second multi-stream saturation test (12 down, 8 up) to capture sustained line capacity",
+    speedLoss: "Packet Loss",
+    speedConnMode: "Connections",
+    speedModeMulti: "Multi",
+    speedModeSingle: "Single",
+    speedModeMultiHint: "Parallel TCP streams (Max Line Capacity)",
+    speedModeSingleHint: "1 TCP stream (Single-Connection Speed)",
+    speedStreamsUnit: "Streams",
+    speedStreamSingleUnit: "Stream",
+    speedNetworkCard: "Your Network (ISP)",
+    speedServerCard: "Test Server",
+    speedBufferbloat: "Bufferbloat",
+    speedLatencyLow: "Low",
+    speedLatencyMed: "Moderate",
+    speedLatencyHigh: "Elevated",
+    speedDurationHint: "Calibrated 20-slice Ookla trimmed mean test for rock-steady, reproducible throughput scoring",
     speedJitter: "Jitter",
-    speedPeak: "Peak (Max Speed)",
+    speedPeak: "Peak",
     speedBest: "Best",
     speedTotalData: "Data Used",
-    speedPhasePing: "Testing Ping & Edge Latency...",
-    speedPhaseDown: "Measuring Download Speed (12 Streams)...",
-    speedPhaseUp: "Measuring Upload Speed (8 Streams)...",
+    speedPhasePing: "Finding Server & Idle Ping...",
+    speedPhaseDown: "Testing Download",
+    speedPhaseUp: "Testing Upload",
     speedPhaseComplete: "Speed Test Complete",
     speedPhaseDuplex: "Multi-Stream Testing...",
-    speedPhaseIdle: "Click GO to start automated speed benchmark",
+    speedPhaseIdle: "Select Multi or Single connections and click GO",
     speedEdgesTitle: "Global Anycast Edge Latency Matrix",
     speedAvg: "Avg",
     speedScorecardTitle: "Speed Test Results",
@@ -127,7 +150,8 @@ const I18N = {
     speedGradeExcellent: "Ultra Fast Connection (Ideal for Competitive Gaming, 4K Streaming & Low-Latency VoIP)",
     speedGradeGood: "Fast & Stable Connection (Great for Remote Work, HD Streaming & Video Calls)",
     speedGradeFair: "Moderate Connection (Suitable for Web Browsing & Standard Streaming)",
-    speedServerHint: "Test Servers: High-Speed Anycast Network (Cloudflare & Multi-CDN)",
+    speedGradePoor: "Limited Connection (Suitable for basic browsing; heavy media or gaming may lag)",
+    speedServerHint: "Cloudflare Anycast & Multi-CDN Edge Network",
     speedProgress: "Progress",
     zoomIn: "Zoom In (Ctrl +)",
     zoomOut: "Zoom Out (Ctrl -)",
@@ -145,12 +169,12 @@ const I18N = {
     identityDesc:
       "Visual MTR & Smart Network Diagnostics — Real-Time ICMPv4 Route Telemetry, Geo-IP Topology, DNS Inspector, TCP Port Scanner & Live Multi-Stream Bandwidth Benchmark.",
     rightsText: "All Rights Reserved to Developer",
-    sec2Title: "2. Appearance Mode (Dark / White Theme)",
-    sec2Desc: "Switch the application interface between Dark Slate Mode and Crisp White Mode:",
-    darkThemeTitle: "Dark Mode",
-    darkThemeDesc: "Deep slate NOC theme optimized for low-light monitoring",
-    lightThemeTitle: "White Mode",
-    lightThemeDesc: "Crisp high-contrast white theme for bright environments",
+    sec2Title: "2. Appearance Mode (Carbon Dark / Daylight Light)",
+    sec2Desc: "Switch the application interface between Carbon Slate Dark Mode and Soft Daylight Alabaster Mode:",
+    darkThemeTitle: "Carbon Dark Mode",
+    darkThemeDesc: "Solid layered slate surfaces with crisp borders & zero distraction",
+    lightThemeTitle: "Soft Daylight Mode",
+    lightThemeDesc: "Anti-glare pearl-stone daylight palette — comfortable & eye-friendly",
     activeThemeBadge: "ACTIVE",
     sec3Title: "3. Comprehensive Guide to All Program Sections",
     sec3Desc: "Detailed explanation of every tool, indicator, and metric inside Masar v1.0:",
@@ -239,10 +263,10 @@ const I18N = {
     portDuration: "مدة الفحص",
     stateOpen: "مفتوح",
     stateClosed: "مغلق",
-    speedTitle: "فحص سرعة الاتصال والخوادم العالمية",
-    speedDesc: "فحص عميق وموسع (زمن الاستجابة، التحميل بـ 12 قناة، الرفع بـ 8 قنوات) مع استبعاد فترة الإحماء وحساب المتوسط المشذب لأعلى دقة مطابقة لمعايير Speedtest.",
+    speedTitle: "قياس السرعة الاحترافي • Speedtest",
+    speedDesc: "فحص تكيّفي مستقر بمعايير Ookla Speedtest (الاستجابة تحت الضغط، قنوات TCP مستقلة، ومتوسط 20 شريحة مشذّب).",
     speedStartBtn: "بدء الفحص",
-    speedStopBtn: "إلغاء الفحص",
+    speedStopBtn: "إيقاف الفحص",
     speedGoBtn: "ابدأ",
     speedTesting: "جارٍ الفحص...",
     speedTestAgain: "إعادة الفحص",
@@ -252,20 +276,36 @@ const I18N = {
     speedExportingPdf: "جارٍ تصدير التقرير...",
     speedDown: "التحميل",
     speedUp: "الرفع",
-    speedPing: "الاستجابة (Ping)",
-    speedLoadedPing: "الاستجابة تحت الضغط",
-    speedIdlePing: "الاستجابة بدون ضغط",
-    speedDurationHint: "فحص متعمق مدته 31 ثانية (12 قناة تحميل و 8 قنوات رفع) لتحقيق أقصى إشباع لقدرة الخط واستخراج أدق نتيجة مستقرة",
-    speedJitter: "التذبذب (Jitter)",
-    speedPeak: "الذروة (أعلى سرعة)",
+    speedPing: "الاستجابة",
+    speedLoadedPing: "تحت الضغط",
+    speedDownPing: "استجابة التحميل",
+    speedUpPing: "استجابة الرفع",
+    speedIdlePing: "استجابة الخمول",
+    speedLoss: "فقد الحزم",
+    speedConnMode: "الاتصالات",
+    speedModeMulti: "متعدد القنوات",
+    speedModeSingle: "قناة واحدة",
+    speedModeMultiHint: "قنوات متوازية لقياس السعة القصوى للخط",
+    speedModeSingleHint: "جلسة TCP واحدة لقياس سرعة التنزيل الفردي",
+    speedStreamsUnit: "قنوات",
+    speedStreamSingleUnit: "قناة",
+    speedNetworkCard: "شبكتك (المزود)",
+    speedServerCard: "خادم الفحص",
+    speedBufferbloat: "تأثر الضغط",
+    speedLatencyLow: "ممتاز",
+    speedLatencyMed: "متوسط",
+    speedLatencyHigh: "مرتفع",
+    speedDurationHint: "فحص معاير وفق منهجية 20 شريحة زمنية واستبعاد الأطراف الشاذة للحصول على قراءة ثابتة ودقيقة",
+    speedJitter: "التذبذب",
+    speedPeak: "الذروة",
     speedBest: "الأفضل",
-    speedTotalData: "البيانات المستخدمة",
-    speedPhasePing: "قياس زمن الاستجابة والتذبذب...",
-    speedPhaseDown: "قياس سرعة التحميل (12 قناة متوازية)...",
-    speedPhaseUp: "قياس سرعة الرفع (8 قنوات متوازية)...",
-    speedPhaseComplete: "اكتمل فحص السرعة",
+    speedTotalData: "البيانات",
+    speedPhasePing: "تحديد الخادم وقياس الاستجابة...",
+    speedPhaseDown: "قياس سرعة التحميل",
+    speedPhaseUp: "قياس سرعة الرفع",
+    speedPhaseComplete: "اكتملت نتائج الفحص",
     speedPhaseDuplex: "فحص متزامن...",
-    speedPhaseIdle: "اضغط على «ابدأ» لتشغيل فحص السرعة المتدرج",
+    speedPhaseIdle: "اختر نمط الاتصال ثم اضغط «ابدأ» لقياس السرعة الفعلي",
     speedEdgesTitle: "استجابة الخوادم السحابية العالمية (Anycast Edge)",
     speedAvg: "المتوسط",
     speedScorecardTitle: "نتيجة فحص السرعة",
@@ -273,7 +313,8 @@ const I18N = {
     speedGradeExcellent: "اتصال فائق السرعة (مثالي للألعاب التنافسية والبث بدقة 4K والمكالمات الفائقة)",
     speedGradeGood: "اتصال سريع ومستقر (ممتاز للعمل عن بعد والمكالمات المرئية والتصفح السلس)",
     speedGradeFair: "اتصال معتدل (مناسب للتصفح اليومي ومشاهدة الفيديو العادي)",
-    speedServerHint: "خوادم الفحص السحابية: شبكة Anycast السريعة (Cloudflare & Multi-CDN)",
+    speedGradePoor: "اتصال محدود (مناسب للمهام الأساسية فقط وقد يتأثر عند ضغط الاستخدام)",
+    speedServerHint: "شبكة خوادم Cloudflare Anycast السحابية العالمية",
     speedProgress: "التقدم",
     zoomIn: "تكبير الواجهة (Ctrl +)",
     zoomOut: "تصغير الواجهة (Ctrl -)",
@@ -291,12 +332,12 @@ const I18N = {
     identityDesc:
       "الفحص البصري للمسار وتشخيص الشبكة الذكي — تتبع لحظي لمسار الحزم، خريطة الموقع الجغرافي، فاحص سجلات النطاقات، فاحص المنافذ المتوازي، والقياس المباشر لسرعة الاتصال.",
     rightsText: "جميع الحقوق محفوظة للمطور",
-    sec2Title: "ثانياً: تحويل لون البرنامج (الداكن / الأبيض)",
-    sec2Desc: "اختر المظهر المناسب لك بين الوضع الداكن الاحترافي والوضع الأبيض الفاتح مع معاينة شكل البرنامجين:",
-    darkThemeTitle: "الوضع الداكن",
-    darkThemeDesc: "مظهر ليلي هادئ مريح للعين ومخصص لغرف العمليات والمراقبة المستمرة",
-    lightThemeTitle: "الوضع الأبيض",
-    lightThemeDesc: "مظهر أبيض نقي عالي الوضوح والتباين للإضاءة النهارية والمكتبية",
+    sec2Title: "ثانياً: وضع المظهر (الداكن / النهاري المريح)",
+    sec2Desc: "اختر المظهر المناسب لك بين الوضع الداكن الاحترافي والوضع النهاري الهادئ المريح للعين:",
+    darkThemeTitle: "الوضع الداكن (Carbon Slate)",
+    darkThemeDesc: "طبقات داكنة صلبة عالية الوضوح والتباين بدون أي تشتيت بصري",
+    lightThemeTitle: "الوضع النهاري المريح (Soft Daylight)",
+    lightThemeDesc: "تدرج لؤلؤي حجري هادئ يمنع وهج اللون الأبيض ويحمي العين",
     activeThemeBadge: "مُفعّل حالياً",
     sec3Title: "ثالثاً: الشرح المفصل لجميع أقسام البرنامج",
     sec3Desc: "دليل شامل يشرح وظيفة وطريقة قراءة كل أداة وكل مؤشر داخل برنامج مسار (الإصدار 1.0):",
@@ -430,6 +471,21 @@ function localizeErrorMessage(rawErr, lang) {
       ? "تعذّر حفظ ملف التقرير في المجلد المحدد — يرجى التحقق من صلاحيات الكتابة."
       : "Could not save the report file to the selected location — please check folder write permissions.";
   }
+  if (lower.includes("unable to reach speed benchmark servers")) {
+    return isAr
+      ? "تعذّر الوصول إلى خوادم قياس السرعة — تأكد من اتصال الإنترنت أو إعدادات البروكسي والجدار الناري."
+      : "Unable to reach speed benchmark servers — check your internet connection, proxy, or firewall.";
+  }
+  if (lower.includes("blocked unsafe redirect") || lower.includes("captive portal")) {
+    return isAr
+      ? "تم حظر إعادة توجيه غير آمنة أو بوابة تسجيل دخول شبكة (Captive Portal) أثناء الاتصال بخادم قياس السرعة."
+      : "Blocked unsafe redirect or captive portal while connecting to the benchmark server.";
+  }
+  if (lower.includes("unable to download benchmark stream")) {
+    return isAr
+      ? "تعذّر تحميل حزم الفحص من خادم التوزيع (قد يكون محجوباً عبر الجدار الناري أو البروكسي)."
+      : "Unable to download benchmark stream from CDN (blocked by proxy, captive portal, or firewall).";
+  }
 
   return msg;
 }
@@ -454,10 +510,14 @@ const INITIAL_HEALTH = {
 };
 
 const INITIAL_SPEED = {
+  seq: 0,
   running: false,
   completed: false,
   progress: 0,
   phase: "idle",
+  error: "",
+  connectionMode: "multi",
+  activeStreams: 0,
   downloadMbps: 0,
   peakDownloadMbps: 0,
   finalDownloadMbps: 0,
@@ -466,9 +526,18 @@ const INITIAL_SPEED = {
   finalUploadMbps: 0,
   pingMs: 0,
   bestPingMs: 0,
+  maxPingMs: 0,
   loadedPingMs: 0,
+  downloadLatencyMs: 0,
+  uploadLatencyMs: 0,
   jitterMs: 0,
+  packetLoss: 0,
   totalMB: 0,
+  clientIp: "",
+  clientIsp: "",
+  clientLocation: "",
+  serverName: "Cloudflare Anycast CDN",
+  serverLocation: "Global Edge Network",
   downloadHistory: [],
   uploadHistory: [],
   pingHistory: [],
@@ -549,6 +618,592 @@ function MasarLogo({ size = 24, className = "" }) {
   );
 }
 
+// Soft, velvety two-note ambient marimba/Rhodes interval (C4/G4 -> E4/B4) via native Windows audio + Web Audio fallback
+function playMasarStartupChime(preferWebAudioOnly = false) {
+  try {
+    if (
+      !preferWebAudioOnly &&
+      hasWailsBackend() &&
+      typeof window.go.main.App.PlayStartupChime === "function"
+    ) {
+      window.go.main.App.PlayStartupChime();
+      return;
+    }
+  } catch {
+    // fallback to Web Audio API below
+  }
+
+  try {
+    const AudioCtx =
+      typeof window !== "undefined" &&
+      (window.AudioContext || window.webkitAudioContext);
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const now = ctx.currentTime + 0.02;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.13, now);
+
+    // Deep warm low-pass filter (950 Hz) for a soft, wooden marimba/Rhodes feel without any harsh highs
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(950, now);
+    filter.Q.setValueAtTime(0.5, now);
+
+    filter.connect(master);
+    master.connect(ctx.destination);
+
+    const notes = [
+      { freq: 130.81, delay: 0.0, dur: 1.15, gain: 0.14 },  // C3 warm sub
+      { freq: 261.63, delay: 0.0, dur: 1.15, gain: 0.34 },  // C4 root
+      { freq: 392.00, delay: 0.0, dur: 1.10, gain: 0.22 },  // G4 fifth
+      { freq: 329.63, delay: 0.16, dur: 1.15, gain: 0.28 }, // E4 gentle third
+      { freq: 493.88, delay: 0.16, dur: 1.15, gain: 0.18 }, // B4 warm major 7th
+    ];
+
+    notes.forEach((n) => {
+      const osc = ctx.createOscillator();
+      const noteGain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(n.freq, now + n.delay);
+
+      noteGain.gain.setValueAtTime(0.0001, now + n.delay);
+      noteGain.gain.linearRampToValueAtTime(n.gain, now + n.delay + 0.038);
+      noteGain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        now + n.delay + n.dur
+      );
+
+      osc.connect(noteGain);
+      noteGain.connect(filter);
+      osc.start(now + n.delay);
+      osc.stop(now + n.delay + n.dur + 0.04);
+    });
+
+    setTimeout(() => {
+      try {
+        ctx.close();
+      } catch {
+        // ignore
+      }
+    }, 1800);
+  } catch {
+    // ignore audio context restrictions
+  }
+}
+
+function MasarStartupSplash({
+  lang = "ar",
+  isLight = false,
+  versionDisplay = "v1.0.4",
+  progress = 0,
+  exiting = false,
+  soundMuted = false,
+  onToggleSound,
+  onSkip,
+}) {
+  const isAr = lang === "ar";
+  const stages = isAr
+    ? [
+        {
+          code: "STAGE 01 // ICMPv4 CORE",
+          text: "تهيئة محرك الفحص البصري للمسار (ICMPv4 Engine)...",
+        },
+        {
+          code: "STAGE 02 // GEO-IP & ASN",
+          text: "تحميل خرائط المواقع الجغرافية ومزودي الخدمة (Geo-IP)...",
+        },
+        {
+          code: "STAGE 03 // DNS & TCP ENGINE",
+          text: "تجهيز فاحص النطاقات والمنافذ المتوازي عالي السرعة...",
+        },
+        {
+          code: "STAGE 04 // ANYCAST EDGE",
+          text: "معايرة قنوات قياس السرعة وخوادم الحافة السحابية...",
+        },
+      ]
+    : [
+        {
+          code: "STAGE 01 // ICMPv4 CORE",
+          text: "Initializing Visual MTR & Raw ICMPv4 Telemetry Engine...",
+        },
+        {
+          code: "STAGE 02 // GEO-IP & ASN",
+          text: "Loading Geo-IP Topology & ASN Network Intelligence...",
+        },
+        {
+          code: "STAGE 03 // DNS & TCP ENGINE",
+          text: "Arming Concurrent DNS Inspector & TCP Port Scanner...",
+        },
+        {
+          code: "STAGE 04 // ANYCAST EDGE",
+          text: "Calibrating Multi-Stream Speedtest & Anycast Edge Nodes...",
+        },
+      ];
+
+  const stageIdx =
+    progress >= 82 ? 3 : progress >= 55 ? 2 : progress >= 26 ? 1 : 0;
+
+  const nodes = [
+    {
+      id: "mtr",
+      title: isAr ? "المسار MTR" : "Visual MTR",
+      sub: "ICMPv4",
+      threshold: 14,
+    },
+    {
+      id: "dns",
+      title: isAr ? "النطاقات DNS" : "DNS Probe",
+      sub: "7-Record",
+      threshold: 42,
+    },
+    {
+      id: "ports",
+      title: isAr ? "المنافذ TCP" : "Port Scan",
+      sub: "18-Port",
+      threshold: 68,
+    },
+    {
+      id: "speed",
+      title: isAr ? "السرعة CDN" : "Speedtest",
+      sub: "Anycast",
+      threshold: 88,
+    },
+  ];
+
+  // Progress ring circumference for 148px orbital SVG (r = 66)
+  const ringRadius = 66;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringOffset =
+    ringCircumference * (1 - Math.max(4, Math.min(100, progress)) / 100);
+
+  return (
+    <div
+      dir={isAr ? "rtl" : "ltr"}
+      onClick={onSkip}
+      role="status"
+      aria-live="polite"
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center px-6 select-none overflow-hidden ${
+        exiting ? "masar-splash-screen-out" : ""
+      }`}
+      style={{
+        background: isLight
+          ? "radial-gradient(circle at 50% 28%, #d4e2f0 0%, #dde6f0 42%, #dce3ec 100%)"
+          : "radial-gradient(circle at 50% 28%, #132038 0%, #0e1628 45%, #0b0f19 100%)",
+        opacity: exiting ? 0 : 1,
+        transform: exiting ? "scale(1.03) translate3d(0, -8px, 0)" : "scale(1) translate3d(0, 0, 0)",
+        transition:
+          "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1), transform 340ms cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    >
+      {/* Invisible top drag region so the frameless window remains draggable during splash */}
+      <div
+        className="wails-drag absolute top-0 inset-x-0 h-10 z-20"
+        style={{ WebkitAppRegion: "drag", "--wails-draggable": "drag" }}
+      />
+      {/* Subtle Static Architectural Grid */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-20"
+        style={{
+          backgroundImage: isLight
+            ? "linear-gradient(to right, rgba(15,23,42,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(15,23,42,0.06) 1px, transparent 1px)"
+            : "linear-gradient(to right, rgba(148,163,184,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.06) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+        }}
+      />
+
+      {/* Ambient Cyan-Emerald Dual Aura */}
+      <div
+        className="masar-splash-halo pointer-events-none absolute w-[420px] h-[420px] rounded-full blur-3xl"
+        style={{
+          background: isLight
+            ? "radial-gradient(circle, rgba(2,132,199,0.14) 0%, rgba(5,150,105,0.10) 52%, transparent 74%)"
+            : "radial-gradient(circle, rgba(14,165,233,0.18) 0%, rgba(16,185,129,0.12) 52%, transparent 74%)",
+        }}
+      />
+
+      {/* Center Executive Telemetry Boot Console */}
+      <div className="masar-splash-card-in relative z-10 w-full max-w-lg flex flex-col items-center text-center">
+        {/* 1) Orbital Radar & 3D Glass Logo Emblem */}
+        <div className="relative w-40 h-40 flex items-center justify-center mb-4">
+          {/* Outer Expanding Sonar Ring */}
+          <span
+            className="masar-sonar-ring absolute w-32 h-32 rounded-full border"
+            style={{
+              borderColor: isLight
+                ? "rgba(2, 132, 199, 0.28)"
+                : "rgba(56, 189, 248, 0.32)",
+            }}
+          />
+
+          {/* Counter-Rotating SVG Orbital Telemetry Rings + Live Circular Progress */}
+          <svg
+            className="absolute inset-0 w-full h-full overflow-visible"
+            viewBox="0 0 160 160"
+          >
+            <defs>
+              <linearGradient
+                id="splashOrbitGrad"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#06b6d4" />
+                <stop offset="50%" stopColor="#3b82f6" />
+                <stop offset="100%" stopColor="#10b981" />
+              </linearGradient>
+            </defs>
+
+            {/* Outer Segmented Orbit (Clockwise) */}
+            <g className="masar-orbit-cw" style={{ transformOrigin: "80px 80px" }}>
+              <circle
+                cx="80"
+                cy="80"
+                r="75"
+                fill="none"
+                stroke={
+                  isLight
+                    ? "rgba(2, 132, 199, 0.22)"
+                    : "rgba(56, 189, 248, 0.24)"
+                }
+                strokeWidth="1.25"
+                strokeDasharray="10 14 28 14"
+              />
+              <circle cx="80" cy="5" r="2.6" fill="#38bdf8" />
+              <circle cx="80" cy="155" r="2.2" fill="#10b981" />
+            </g>
+
+            {/* Inner Segmented Orbit (Counter-Clockwise) */}
+            <g
+              className="masar-orbit-ccw"
+              style={{ transformOrigin: "80px 80px" }}
+            >
+              <circle
+                cx="80"
+                cy="80"
+                r="58"
+                fill="none"
+                stroke={
+                  isLight
+                    ? "rgba(16, 185, 129, 0.25)"
+                    : "rgba(52, 211, 153, 0.24)"
+                }
+                strokeWidth="1.2"
+                strokeDasharray="6 10"
+              />
+            </g>
+
+            {/* Circular Progress Ring Track */}
+            <circle
+              cx="80"
+              cy="80"
+              r={ringRadius}
+              fill="none"
+              stroke={
+                isLight ? "rgba(203, 213, 225, 0.55)" : "rgba(30, 41, 59, 0.7)"
+              }
+              strokeWidth="2.5"
+            />
+            {/* Circular Progress Active Arc */}
+            <circle
+              cx="80"
+              cy="80"
+              r={ringRadius}
+              fill="none"
+              stroke="url(#splashOrbitGrad)"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+              strokeDasharray={ringCircumference}
+              strokeDashoffset={ringOffset}
+              transform="rotate(-90 80 80)"
+              style={{ transition: "stroke-dashoffset 120ms ease-out" }}
+            />
+          </svg>
+
+          {/* Clean Frameless Logo Emblem (No Dark Pedestal Border) */}
+          <div
+            className="masar-studio-float relative flex items-center justify-center rounded-[22px]"
+            style={{
+              filter: isLight
+                ? "drop-shadow(0 18px 34px rgba(2, 132, 199, 0.22))"
+                : "drop-shadow(0 20px 40px rgba(14, 165, 233, 0.36))",
+            }}
+          >
+            <MasarLogo size={84} />
+          </div>
+        </div>
+
+        {/* 2) Project Name Bilingual Title + Version & Sound Controls */}
+        <div className="masar-splash-stagger-1 flex flex-col items-center">
+          <div className="flex items-center justify-center gap-2.5 flex-wrap mb-1.5">
+            <h1
+              className="text-3xl sm:text-4xl font-black tracking-tight flex items-center gap-2.5"
+              style={{ color: isLight ? "#0f172a" : "#f8fafc" }}
+            >
+              <span>مسار</span>
+              <span className="text-sky-500 font-light">•</span>
+              <span
+                className="tracking-wider bg-gradient-to-r from-sky-400 via-blue-500 to-emerald-400 bg-clip-text text-transparent"
+                dir="ltr"
+              >
+                MASAR
+              </span>
+            </h1>
+            <span
+              dir="ltr"
+              className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold border"
+              style={{
+                backgroundColor: isLight
+                  ? "rgba(2, 132, 199, 0.10)"
+                  : "rgba(14, 165, 233, 0.15)",
+                color: isLight ? "#0369a1" : "#38bdf8",
+                borderColor: isLight
+                  ? "rgba(2, 132, 199, 0.28)"
+                  : "rgba(56, 189, 248, 0.34)",
+              }}
+            >
+              {versionDisplay}
+            </span>
+          </div>
+
+          <p
+            className="text-xs sm:text-[13px] font-medium max-w-md leading-relaxed mb-5"
+            style={{ color: isLight ? "#475569" : "#94a3b8" }}
+          >
+            {isAr
+              ? "منصة الفحص البصري للمسار وتشخيص الشبكة الذكي في الوقت الفعلي"
+              : "Visual MTR, Route Telemetry & Smart Network Diagnostics Suite"}
+          </p>
+        </div>
+
+        {/* 3) Executive Telemetry & Live Topology Boot Card */}
+        <div
+          className="masar-splash-stagger-2 w-full rounded-2xl border p-4 shadow-2xl"
+          style={{
+            backgroundColor: isLight ? "#f2f5f9" : "#131b2e",
+            borderColor: isLight
+              ? "rgba(15, 23, 42, 0.14)"
+              : "rgba(148, 163, 184, 0.22)",
+            boxShadow: isLight
+              ? "0 20px 45px -18px rgba(15, 23, 42, 0.12)"
+              : "0 24px 55px -16px rgba(2, 6, 23, 0.75)",
+          }}
+        >
+          {/* Top Header: Stage Code + Equalizer Waveform + Numeric Percentage */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Live 5-Bar Audio/Signal Equalizer */}
+              <div
+                className="flex items-end gap-[2.5px] h-3.5 px-1.5 py-0.5 rounded bg-sky-500/10 border border-sky-500/25 shrink-0"
+                aria-hidden="true"
+              >
+                {[0, 150, 300, 120, 240].map((delayMs, i) => (
+                  <span
+                    key={i}
+                    className="masar-eq-bar w-[2.5px] h-2.5 rounded-full"
+                    style={{
+                      animationDelay: `${delayMs}ms`,
+                      background:
+                        i % 2 === 0 ? "#38bdf8" : "#10b981",
+                    }}
+                  />
+                ))}
+              </div>
+              <span
+                dir="ltr"
+                className="text-[10px] font-mono font-bold tracking-wider uppercase truncate"
+                style={{ color: isLight ? "#0284c7" : "#38bdf8" }}
+              >
+                {stages[stageIdx].code}
+              </span>
+            </div>
+
+            <span
+              dir="ltr"
+              className="font-mono font-black text-sm tabular-nums shrink-0"
+              style={{ color: isLight ? "#0f172a" : "#f8fafc" }}
+            >
+              {Math.round(progress)}%
+            </span>
+          </div>
+
+          {/* Active Stage Description */}
+          <div
+            className="text-xs font-semibold text-start truncate mb-2.5"
+            style={{ color: isLight ? "#1e293b" : "#e2e8f0" }}
+          >
+            {stages[stageIdx].text}
+          </div>
+
+          {/* Gradient Progress Bar with Shimmer */}
+          <div
+            className="w-full h-2 rounded-full overflow-hidden relative"
+            style={{
+              backgroundColor: isLight ? "#e2e8f0" : "rgba(30, 41, 59, 0.95)",
+            }}
+          >
+            <div
+              className="h-full rounded-full relative overflow-hidden transition-all duration-100 ease-out"
+              style={{
+                width: `${Math.max(6, Math.min(100, progress))}%`,
+                background:
+                  "linear-gradient(90deg, #06b6d4 0%, #3b82f6 52%, #10b981 100%)",
+              }}
+            >
+              <div
+                className="masar-splash-bar-shimmer absolute inset-y-0 w-1/2"
+                style={{
+                  background:
+                    "linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent)",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 4-Node Network Topology Pipeline (Clean Opaque Cards without Bleeding Line) */}
+          <div className="mt-3.5 pt-3 border-t border-slate-500/15">
+            <div className="grid grid-cols-4 gap-2 text-[10px] font-mono">
+              {nodes.map((node, idx) => {
+                const ready = progress >= node.threshold;
+                const active =
+                  !ready &&
+                  (idx === 0 || progress >= nodes[idx - 1].threshold);
+                return (
+                  <div
+                    key={node.id}
+                    className="rounded-xl border px-2 py-2 flex flex-col items-center justify-center gap-0.5 transition-all duration-200"
+                    style={{
+                      backgroundColor: ready
+                        ? isLight
+                          ? "#ecfdf5"
+                          : "#092622"
+                        : active
+                        ? isLight
+                          ? "#f0f9ff"
+                          : "#0c1e36"
+                        : isLight
+                        ? "#f8fafc"
+                        : "#0d1527",
+                      borderColor: ready
+                        ? isLight
+                          ? "rgba(16, 185, 129, 0.45)"
+                          : "rgba(16, 185, 129, 0.42)"
+                        : active
+                        ? isLight
+                          ? "rgba(14, 165, 233, 0.45)"
+                          : "rgba(56, 189, 248, 0.40)"
+                        : isLight
+                        ? "#e2e8f0"
+                        : "rgba(51, 65, 85, 0.55)",
+                      color: ready
+                        ? isLight
+                          ? "#047857"
+                          : "#34d399"
+                        : active
+                        ? isLight
+                          ? "#0284c7"
+                          : "#38bdf8"
+                        : "#64748b",
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold truncate max-w-full">
+                      <span
+                        className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                          active ? "animate-pulse" : ""
+                        }`}
+                        style={{
+                          backgroundColor: ready
+                            ? "#10b981"
+                            : active
+                            ? "#38bdf8"
+                            : "#64748b",
+                        }}
+                      />
+                      <span className="truncate">{node.title}</span>
+                    </div>
+                    <span
+                      dir="ltr"
+                      className="text-[9px] opacity-75 tracking-tight"
+                    >
+                      {node.sub}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 4) Bottom Footer Strip: Calm Sound Chime Toggle + Crafted Credit */}
+        <div className="masar-splash-stagger-3 mt-4 flex items-center justify-between w-full px-1 text-[11px]">
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onToggleSound) onToggleSound();
+            }}
+            role="switch"
+            aria-checked={!soundMuted}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onToggleSound) onToggleSound();
+              }
+            }}
+            className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all duration-200 hover:scale-105"
+            style={{
+              backgroundColor: isLight
+                ? "rgba(255, 255, 255, 0.75)"
+                : "rgba(15, 23, 42, 0.65)",
+              borderColor: isLight
+                ? "rgba(203, 213, 225, 0.85)"
+                : "rgba(51, 65, 85, 0.65)",
+              color: soundMuted
+                ? "#94a3b8"
+                : isLight
+                ? "#0284c7"
+                : "#38bdf8",
+            }}
+          >
+            {soundMuted ? (
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M11 5L6 9H2v6h4l5 4V5z" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M23 9l-6 6M17 9l6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M11 5L6 9H2v6h4l5 4V5z" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+            <span className="font-semibold">
+              {soundMuted
+                ? isAr
+                  ? "نغمة البدء: صامت"
+                  : "Startup Chime: Muted"
+                : isAr
+                ? "نغمة البدء الهادئة"
+                : "Calm Startup Chime"}
+            </span>
+          </div>
+
+          <span
+            className="font-medium opacity-75"
+            style={{ color: isLight ? "#64748b" : "#64748b" }}
+          >
+            {isAr ? "انقر في أي مكان للتخطي السريع" : "Click anywhere to skip"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* Miniature Visual Preview Screenshot of Masar UI (Dark Mode vs White Mode) */
 function ThemePreviewMiniUI({ mode = "dark" }) {
   const isDark = mode === "dark";
@@ -556,36 +1211,39 @@ function ThemePreviewMiniUI({ mode = "dark" }) {
     <div
       dir="ltr"
       style={{
-        backgroundColor: isDark ? "#020617" : "#f1f5f9",
-        borderColor: isDark ? "#1e293b" : "#cbd5e1",
-        color: isDark ? "#f1f5f9" : "#0f172a",
+        background: isDark ? "#0b0f19" : "#dce3ec",
+        borderColor: isDark ? "rgba(148,163,184,0.22)" : "rgba(15,23,42,0.16)",
+        color: isDark ? "#f8fafc" : "#0f172a",
       }}
       className="w-full rounded-xl overflow-hidden border shadow-md select-none"
     >
       {/* Mini Titlebar */}
       <div
         style={{
-          backgroundColor: isDark ? "#020617" : "#f1f5f9",
+          backgroundColor: isDark ? "#0e1422" : "#e6ecf3",
+          borderBottom: isDark
+            ? "1px solid rgba(148,163,184,0.16)"
+            : "1px solid rgba(15,23,42,0.10)",
         }}
         className="h-6 px-2.5 flex items-center justify-between"
       >
         <div className="flex items-center gap-1.5">
           <MasarLogo size={13} />
           <span
-            style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}
+            style={{ color: isDark ? "#f1f5f9" : "#0f172a" }}
             className="text-[9px] font-bold"
           >
             Masar مسار
           </span>
           <span
             style={{
-              backgroundColor: isDark ? "#082f49" : "#e0f2fe",
+              backgroundColor: isDark ? "rgba(14,165,233,0.16)" : "rgba(2,132,199,0.12)",
               color: isDark ? "#38bdf8" : "#0369a1",
-              borderColor: isDark ? "#075985" : "#7dd3fc",
+              borderColor: isDark ? "rgba(56,189,248,0.35)" : "rgba(2,132,199,0.35)",
             }}
             className="text-[8px] px-1 rounded font-mono border"
           >
-            v1.0
+            v1.0.4
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -600,37 +1258,40 @@ function ThemePreviewMiniUI({ mode = "dark" }) {
         {/* Mini Control Card */}
         <div
           style={{
-            backgroundColor: isDark ? "#0f172a" : "#ffffff",
-            borderColor: isDark ? "#1e293b" : "#e2e8f0",
+            backgroundColor: isDark ? "#131b2e" : "#f2f5f9",
+            borderColor: isDark ? "rgba(148,163,184,0.20)" : "rgba(15,23,42,0.14)",
           }}
           className="rounded-lg p-1.5 border flex items-center justify-between gap-1 shadow-sm"
         >
           <div className="flex items-center gap-1">
             <span
               style={{
-                backgroundColor: isDark ? "rgba(14,165,233,0.2)" : "#e0f2fe",
+                backgroundColor: isDark ? "rgba(14,165,233,0.20)" : "rgba(2,132,199,0.14)",
                 color: isDark ? "#7dd3fc" : "#0369a1",
-                borderColor: isDark ? "rgba(14,165,233,0.4)" : "#7dd3fc",
+                borderColor: isDark ? "rgba(56,189,248,0.45)" : "rgba(2,132,199,0.38)",
               }}
               className="px-1.5 py-0.5 rounded text-[8px] font-bold border"
             >
               Visual MTR
             </span>
             <span
-              style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+              style={{ color: isDark ? "#a3b3c9" : "#334155" }}
               className="px-1 py-0.5 text-[8px]"
             >
               DNS
             </span>
             <span
-              style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+              style={{ color: isDark ? "#a3b3c9" : "#334155" }}
               className="px-1 py-0.5 text-[8px]"
             >
               Ports
             </span>
           </div>
           <span
-            style={{ backgroundColor: "#0ea5e9", color: "#020617" }}
+            style={{
+              backgroundColor: isDark ? "#0ea5e9" : "#0284c7",
+              color: isDark ? "#090d18" : "#ffffff",
+            }}
             className="px-2 py-0.5 rounded text-[8px] font-bold"
           >
             ▶ Start
@@ -641,16 +1302,16 @@ function ThemePreviewMiniUI({ mode = "dark" }) {
         <div
           style={{
             background: isDark
-              ? "linear-gradient(90deg, rgba(6,78,59,0.55) 0%, #0f172a 60%, #0f172a 100%)"
-              : "linear-gradient(90deg, #ecfdf5 0%, #ffffff 60%, #ffffff 100%)",
-            borderColor: isDark ? "rgba(16,185,129,0.4)" : "#6ee7b7",
+              ? "linear-gradient(90deg, rgba(16,185,129,0.14) 0%, #131b2e 60%, #131b2e 100%)"
+              : "linear-gradient(90deg, #e6f7f0 0%, #f2f5f9 60%, #f2f5f9 100%)",
+            borderColor: isDark ? "rgba(16,185,129,0.40)" : "rgba(5,150,105,0.38)",
           }}
           className="rounded-lg p-2 border flex items-center justify-between shadow-sm"
         >
           <div className="space-y-0.5">
             <span
               style={{
-                backgroundColor: isDark ? "rgba(16,185,129,0.2)" : "#d1fae5",
+                backgroundColor: isDark ? "rgba(16,185,129,0.18)" : "rgba(5,150,105,0.14)",
                 color: isDark ? "#6ee7b7" : "#047857",
               }}
               className="inline-block text-[7px] font-bold px-1.5 py-0.2 rounded-full"
@@ -658,7 +1319,7 @@ function ThemePreviewMiniUI({ mode = "dark" }) {
               HEALTHY PATH
             </span>
             <div
-              style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+              style={{ color: isDark ? "#f8fafc" : "#0f172a" }}
               className="text-[9px] font-bold"
             >
               Optimal Path • 8.8.8.8
@@ -671,7 +1332,7 @@ function ThemePreviewMiniUI({ mode = "dark" }) {
                 cy="16"
                 r="12"
                 fill="none"
-                stroke={isDark ? "#1e293b" : "#e2e8f0"}
+                stroke={isDark ? "#1e293b" : "#d5dfeb"}
                 strokeWidth="3"
               />
               <circle
@@ -687,7 +1348,7 @@ function ThemePreviewMiniUI({ mode = "dark" }) {
               />
             </svg>
             <div
-              style={{ color: isDark ? "#34d399" : "#059669" }}
+              style={{ color: isDark ? "#34d399" : "#047857" }}
               className="text-xs font-extrabold font-mono"
             >
               98%
@@ -698,30 +1359,30 @@ function ThemePreviewMiniUI({ mode = "dark" }) {
         {/* Mini Telemetry Table */}
         <div
           style={{
-            backgroundColor: isDark ? "#0f172a" : "#ffffff",
-            borderColor: isDark ? "#1e293b" : "#e2e8f0",
+            backgroundColor: isDark ? "#131b2e" : "#f2f5f9",
+            borderColor: isDark ? "rgba(148,163,184,0.20)" : "rgba(15,23,42,0.14)",
           }}
           className="rounded-lg border overflow-hidden shadow-sm"
         >
           <div
             style={{
-              backgroundColor: isDark ? "#020617" : "#f8fafc",
-              color: isDark ? "#94a3b8" : "#64748b",
-              borderColor: isDark ? "#1e293b" : "#e2e8f0",
+              backgroundColor: isDark ? "#0d1322" : "#e5ebf3",
+              color: isDark ? "#a3b3c9" : "#334155",
+              borderColor: isDark ? "rgba(148,163,184,0.16)" : "rgba(15,23,42,0.12)",
             }}
             className="px-2 py-1 text-[7px] font-mono uppercase flex justify-between border-b"
           >
             <span>#1 192.168.1.1</span>
-            <span style={{ color: isDark ? "#34d399" : "#059669" }}>
+            <span style={{ color: isDark ? "#34d399" : "#047857" }}>
               0.0% • 1.8ms
             </span>
           </div>
           <div
-            style={{ color: isDark ? "#cbd5e1" : "#334155" }}
+            style={{ color: isDark ? "#e2e8f0" : "#1e293b" }}
             className="px-2 py-1 text-[7px] font-mono uppercase flex justify-between"
           >
             <span>#5 8.8.8.8 (dns.google)</span>
-            <span style={{ color: isDark ? "#38bdf8" : "#0284c7" }}>
+            <span style={{ color: isDark ? "#38bdf8" : "#0369a1" }}>
               0.0% • 18.4ms
             </span>
           </div>
@@ -731,84 +1392,26 @@ function ThemePreviewMiniUI({ mode = "dark" }) {
   );
 }
 
-/* Subtle Animated Background Layer for Each Section */
+/* Calm, Static Architectural Card Top Accent (Zero Moving Dots, Orbs, Waves or Laser Distractions) */
 function SectionAmbientBackground({ variant = "mtr" }) {
   const palette = {
-    mtr: {
-      orb1: "rgba(56, 189, 248, 0.17)",
-      orb2: "rgba(16, 185, 129, 0.15)",
-      stroke: "#38bdf8",
-      beam: "linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.7), rgba(16, 185, 129, 0.5), transparent)",
-    },
-    dns: {
-      orb1: "rgba(56, 189, 248, 0.18)",
-      orb2: "rgba(99, 102, 241, 0.15)",
-      stroke: "#38bdf8",
-      beam: "linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.7), rgba(99, 102, 241, 0.5), transparent)",
-    },
-    ports: {
-      orb1: "rgba(16, 185, 129, 0.18)",
-      orb2: "rgba(20, 184, 166, 0.15)",
-      stroke: "#10b981",
-      beam: "linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.7), rgba(20, 184, 166, 0.5), transparent)",
-    },
-    speed: {
-      orb1: "rgba(56, 189, 248, 0.18)",
-      orb2: "rgba(16, 185, 129, 0.16)",
-      stroke: "#38bdf8",
-      beam: "linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.75), rgba(16, 185, 129, 0.6), transparent)",
-    },
+    mtr: "linear-gradient(90deg, transparent 5%, rgba(56, 189, 248, 0.32) 35%, rgba(16, 185, 129, 0.28) 65%, transparent 95%)",
+    dns: "linear-gradient(90deg, transparent 5%, rgba(56, 189, 248, 0.32) 35%, rgba(99, 102, 241, 0.28) 65%, transparent 95%)",
+    ports: "linear-gradient(90deg, transparent 5%, rgba(16, 185, 129, 0.32) 35%, rgba(20, 184, 166, 0.28) 65%, transparent 95%)",
+    speed: "linear-gradient(90deg, transparent 5%, rgba(56, 189, 248, 0.35) 35%, rgba(16, 185, 129, 0.30) 65%, transparent 95%)",
   };
-  const colors = palette[variant] || palette.mtr;
+  const topLine = palette[variant] || palette.mtr;
 
   return (
     <div
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl z-0"
     >
-      {/* Slowly panning dot-matrix grid */}
-      <div className="absolute inset-0 masar-grid-pattern opacity-70" />
-
-      {/* Drifting Ambient Orb 1 */}
+      {/* Static subtle top-edge specular hairline only — no moving dots, orbs, or waves */}
       <div
-        style={{ background: colors.orb1 }}
-        className="masar-orb-1 absolute -top-16 -left-12 w-80 h-80 rounded-full blur-3xl"
+        style={{ background: topLine }}
+        className="absolute top-0 inset-x-0 h-[1px] opacity-80"
       />
-
-      {/* Drifting Ambient Orb 2 */}
-      <div
-        style={{ background: colors.orb2 }}
-        className="masar-orb-2 absolute -bottom-16 -right-12 w-80 h-80 rounded-full blur-3xl"
-      />
-
-      {/* Subtle Floating Network Signal Wave */}
-      <svg
-        className="masar-wave-anim absolute bottom-0 left-0 w-[110%] h-24 opacity-[0.16]"
-        viewBox="0 0 1200 120"
-        fill="none"
-        preserveAspectRatio="none"
-      >
-        <path
-          d="M0 70 C 240 20, 420 110, 660 55 C 880 5, 1040 95, 1200 45"
-          stroke={colors.stroke}
-          strokeWidth="1.6"
-          strokeDasharray="6 6"
-        />
-        <path
-          d="M0 95 C 300 45, 540 115, 820 65 C 980 35, 1100 85, 1200 65"
-          stroke={colors.stroke}
-          strokeWidth="1"
-          opacity="0.65"
-        />
-      </svg>
-
-      {/* Subtle sweeping signal beam along the top edge */}
-      <div className="absolute top-0 left-0 right-0 h-[1.5px] overflow-hidden">
-        <div
-          style={{ background: colors.beam }}
-          className="masar-beam-line w-1/2 h-full"
-        />
-      </div>
     </div>
   );
 }
@@ -850,14 +1453,17 @@ function LatencySparkline({
   width = 104,
   height = 24,
   colorOverride = "",
+  zeroBaseline = false,
 }) {
   if (!history || history.length === 0) {
     return <span className="text-xs text-slate-600">—</span>;
   }
 
   const samples = history.slice(-30);
-  const minVal = Math.min(...samples);
-  const maxVal = Math.max(...samples, minVal + 2);
+  const minVal = zeroBaseline ? 0 : Math.min(...samples);
+  const maxVal = zeroBaseline
+    ? Math.max(...samples, 5) * 1.12
+    : Math.max(...samples, minVal + 2);
   const range = Math.max(1, maxVal - minVal);
 
   const pts = samples.map((val, idx) => {
@@ -1047,85 +1653,364 @@ function ThroughputArcMeter({
   );
 }
 
+const SPEED_ANCHORS_1G = [
+  { v: 0, p: 0, label: "0" },
+  { v: 5, p: 12, label: "5" },
+  { v: 10, p: 24, label: "10" },
+  { v: 25, p: 38, label: "25" },
+  { v: 50, p: 52, label: "50" },
+  { v: 100, p: 65, label: "100" },
+  { v: 250, p: 77, label: "250" },
+  { v: 500, p: 87, label: "500" },
+  { v: 750, p: 94, label: "750" },
+  { v: 1000, p: 100, label: "1000" },
+];
+
+const SPEED_ANCHORS_2G = [
+  { v: 0, p: 0, label: "0" },
+  { v: 10, p: 14, label: "10" },
+  { v: 25, p: 27, label: "25" },
+  { v: 50, p: 40, label: "50" },
+  { v: 100, p: 53, label: "100" },
+  { v: 250, p: 66, label: "250" },
+  { v: 500, p: 77, label: "500" },
+  { v: 1000, p: 87, label: "1G" },
+  { v: 1500, p: 94, label: "1.5G" },
+  { v: 2000, p: 100, label: "2G" },
+];
+
+const PING_ANCHORS = [
+  { v: 0, p: 0, label: "0" },
+  { v: 10, p: 20, label: "10" },
+  { v: 25, p: 42, label: "25" },
+  { v: 50, p: 64, label: "50" },
+  { v: 100, p: 84, label: "100" },
+  { v: 150, p: 100, label: "150" },
+];
+
+function mapSpeedGaugePct(val, anchors) {
+  if (!Number.isFinite(val) || val <= 0) return 0;
+  const last = anchors[anchors.length - 1];
+  if (val >= last.v) return 100;
+  for (let i = 1; i < anchors.length; i++) {
+    const a = anchors[i - 1];
+    const b = anchors[i];
+    if (val <= b.v) {
+      const ratio = (val - a.v) / (b.v - a.v || 1);
+      return a.p + ratio * (b.p - a.p);
+    }
+  }
+  return 100;
+}
+
 function SpeedtestBigGauge({
   phase = "ping",
   downloadMbps = 0,
   uploadMbps = 0,
   pingMs = 0,
-  peakDownload = 100,
-  peakUpload = 50,
+  peakDownload = 0,
+  peakUpload = 0,
+  activeStreams = 1,
+  connectionMode = "multi",
+  history = [],
   isLight = false,
+  lang = "en",
 }) {
   const isDown = phase === "download";
   const isUp = phase === "upload";
   const isPing = phase === "ping";
 
-  const val = isDown ? downloadMbps : isUp ? uploadMbps : pingMs;
-  const maxScale = isPing ? 100 : Math.max(100, (isDown ? peakDownload : peakUpload) * 1.15, 200);
-  const pct = Math.max(0, Math.min(100, (val / maxScale) * 100));
+  const targetVal = isDown ? downloadMbps : isUp ? uploadMbps : pingMs;
+  const maxObserved = isDown
+    ? Math.max(peakDownload || 0, downloadMbps || 0)
+    : Math.max(peakUpload || 0, uploadMbps || 0);
+  const anchors = isPing
+    ? PING_ANCHORS
+    : maxObserved > 980
+    ? SPEED_ANCHORS_2G
+    : SPEED_ANCHORS_1G;
 
-  const radius = 140;
-  const arcLength = 586.4; // 240 deg sweep of 2*PI*140 ≈ 879.6
-  const dashOffset = arcLength * (1 - pct / 100);
+  const color = isDown
+    ? isLight
+      ? "#0284c7"
+      : "#38bdf8"
+    : isUp
+    ? isLight
+      ? "#059669"
+      : "#10b981"
+    : isLight
+    ? "#d97706"
+    : "#f59e0b";
+  const trackColor = isLight ? "#e2e8f0" : "#1e293b";
+  const tickColor = isLight ? "#94a3b8" : "#475569";
+  const labelColor = isLight ? "#475569" : "#94a3b8";
 
-  const color = isDown ? "#38bdf8" : isUp ? "#10b981" : "#f59e0b";
-  const trackColor = isLight ? "#cbd5e1" : "#1e293b";
+  const cx = 180;
+  const cy = 158;
+  const radius = 128;
+  const circumference = 2 * Math.PI * radius; // 804.25
+  const arcLength = circumference * (240 / 360); // 536.17
+
+  const initialPct = mapSpeedGaugePct(targetVal, anchors);
+  const initialDashOffset = arcLength * (1 - initialPct / 100);
+  const initialRot = -120 + (initialPct / 100) * 240;
+
+  const gradId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const arcRef = useRef(null);
+  const needleRef = useRef(null);
+  const numRef = useRef(null);
+  const displayValRef = useRef(targetVal);
+  const targetValRef = useRef(targetVal);
+  const anchorsRef = useRef(anchors);
+  const prevPhaseRef = useRef(phase);
+
+  targetValRef.current = targetVal;
+  anchorsRef.current = anchors;
+
+  useEffect(() => {
+    if (prevPhaseRef.current !== phase) {
+      prevPhaseRef.current = phase;
+      displayValRef.current = 0;
+    }
+  }, [phase]);
+
+  useEffect(() => {
+    const applyGaugeDom = (val) => {
+      const pct = mapSpeedGaugePct(val, anchorsRef.current);
+      if (arcRef.current) {
+        arcRef.current.setAttribute(
+          "stroke-dashoffset",
+          String(arcLength * (1 - pct / 100))
+        );
+      }
+      if (needleRef.current) {
+        const rot = -120 + (pct / 100) * 240;
+        needleRef.current.setAttribute(
+          "transform",
+          `rotate(${rot.toFixed(2)} ${cx} ${cy})`
+        );
+      }
+      if (numRef.current) {
+        numRef.current.textContent = Math.max(0, val || 0).toFixed(1);
+      }
+    };
+
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduced) {
+      displayValRef.current = targetValRef.current;
+      applyGaugeDom(displayValRef.current);
+      return undefined;
+    }
+
+    if (Math.abs(targetValRef.current - displayValRef.current) < 0.01) {
+      displayValRef.current = targetValRef.current;
+      applyGaugeDom(displayValRef.current);
+      return undefined;
+    }
+
+    let rafId = 0;
+    let lastTs = performance.now();
+
+    const step = (ts) => {
+      const dt = Math.min(0.05, Math.max(0.001, (ts - lastTs) / 1000));
+      lastTs = ts;
+      const cur = displayValRef.current;
+      const tgt = targetValRef.current;
+      const alpha = 1 - Math.exp(-dt * 7.5);
+      const settled = Math.abs(tgt - cur) < 0.03;
+      const next = settled ? tgt : cur + (tgt - cur) * alpha;
+      displayValRef.current = next;
+      applyGaugeDom(next);
+      if (!settled) {
+        rafId = requestAnimationFrame(step);
+      }
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [targetVal, phase, arcLength]);
+
+  const phaseBadge = isDown
+    ? lang === "ar"
+      ? `التحميل • ${activeStreams || 1} ${connectionMode === "single" ? "قناة" : "قنوات"}`
+      : `DOWNLOAD • ${activeStreams || 1} ${activeStreams === 1 ? "Stream" : "Streams"}`
+    : isUp
+    ? lang === "ar"
+      ? `الرفع • ${activeStreams || 1} ${connectionMode === "single" ? "قناة" : "قنوات"}`
+      : `UPLOAD • ${activeStreams || 1} ${activeStreams === 1 ? "Stream" : "Streams"}`
+    : lang === "ar"
+    ? "فحص الاستجابة"
+    : "IDLE PING";
 
   return (
-    <div className="relative w-72 h-72 sm:w-84 sm:h-84 md:w-96 md:h-96 flex items-center justify-center select-none">
-      <svg width="100%" height="100%" viewBox="0 0 360 360" className="overflow-visible w-full h-full">
-        {/* Outer Background Track */}
+    <div
+      className="relative w-72 sm:w-80 md:w-[356px] flex flex-col items-center justify-center select-none"
+      dir="ltr"
+    >
+      <svg
+        width="100%"
+        viewBox="0 0 360 288"
+        className="overflow-visible w-full h-auto"
+      >
+        <defs>
+          <linearGradient id={`speedGrad-${gradId}`} x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={isDown ? "#0ea5e9" : isUp ? "#059669" : "#d97706"} />
+            <stop offset="100%" stopColor={isDown ? "#38bdf8" : isUp ? "#34d399" : "#fbbf24"} />
+          </linearGradient>
+        </defs>
+
+        {/* Background Arc Track */}
         <circle
-          cx="180"
-          cy="180"
+          cx={cx}
+          cy={cy}
           r={radius}
           fill="none"
           stroke={trackColor}
-          strokeWidth="14"
+          strokeWidth="12"
           strokeLinecap="round"
-          strokeDasharray={`${arcLength} 900`}
-          transform="rotate(150 180 180)"
+          strokeDasharray={`${arcLength} ${circumference + 50}`}
+          transform={`rotate(150 ${cx} ${cy})`}
         />
-        {/* Dynamic Sweeping Value Arc */}
+
+        {/* Illuminated 60fps Sweeping Value Arc */}
         <circle
-          cx="180"
-          cy="180"
+          ref={arcRef}
+          cx={cx}
+          cy={cy}
           r={radius}
           fill="none"
-          stroke={color}
-          strokeWidth="14"
+          stroke={`url(#speedGrad-${gradId})`}
+          strokeWidth="12"
           strokeLinecap="round"
-          strokeDasharray={`${arcLength} 900`}
-          strokeDashoffset={dashOffset}
-          transform="rotate(150 180 180)"
+          strokeDasharray={`${arcLength} ${circumference + 50}`}
+          strokeDashoffset={initialDashOffset}
+          transform={`rotate(150 ${cx} ${cy})`}
           className="masar-gauge-arc"
           style={{
-            filter: !isLight ? `drop-shadow(0 0 14px ${color}88)` : "none",
+            filter: !isLight ? `drop-shadow(0 0 12px ${color}77)` : "none",
           }}
         />
-      </svg>
-      {/* Central Telemetry Readout */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-6">
-        <span
-          className="text-5xl sm:text-6xl md:text-7xl font-black font-mono tracking-tight tabular-nums transition-colors duration-300"
-          style={{ color }}
-          dir="ltr"
+
+        {/* Fixed Perimeter Tick Marks & Speedtest Scale Labels */}
+        {anchors.map((a) => {
+          const deg = 150 + (a.p / 100) * 240;
+          const rad = (deg * Math.PI) / 180;
+          const x1 = cx + Math.cos(rad) * 116;
+          const y1 = cy + Math.sin(rad) * 116;
+          const x2 = cx + Math.cos(rad) * 109;
+          const y2 = cy + Math.sin(rad) * 109;
+          const lx = cx + Math.cos(rad) * 95;
+          const ly = cy + Math.sin(rad) * 95;
+          return (
+            <g key={a.label}>
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={tickColor}
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <text
+                x={lx}
+                y={ly + 3.5}
+                textAnchor="middle"
+                fill={labelColor}
+                fontSize="10"
+                fontWeight="700"
+                fontFamily="monospace"
+              >
+                {a.label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Rotating Gauge Pointer Needle */}
+        <g
+          ref={needleRef}
+          transform={`rotate(${initialRot.toFixed(2)} ${cx} ${cy})`}
+          opacity={isPing && pingMs <= 0 ? 0.35 : 0.92}
         >
-          {val.toFixed(1)}
-        </span>
-        <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1.5">
-          {isPing ? "ms (Ping)" : "Mbps"}
-        </span>
+          <polygon
+            points={`${cx - 2.6},${cy - 8} ${cx + 2.6},${cy - 8} ${cx + 0.8},${cy - 109} ${cx - 0.8},${cy - 109}`}
+            fill={color}
+          />
+          <circle
+            cx={cx}
+            cy={cy}
+            r="4.5"
+            fill={isLight ? "#ffffff" : "#0f172a"}
+            stroke={color}
+            strokeWidth="2.5"
+          />
+        </g>
+
+        {/* Central Tabular Digital Telemetry (Positioned Cleanly Below Pivot Hub) */}
+        <g textAnchor="middle">
+          <text
+            ref={numRef}
+            x={cx}
+            y={cy + 56}
+            fill={color}
+            fontSize="38"
+            fontWeight="900"
+            fontFamily="monospace"
+            className="tabular-nums"
+          >
+            {(targetVal || 0).toFixed(1)}
+          </text>
+          <text
+            x={cx}
+            y={cy + 74}
+            fill={labelColor}
+            fontSize="11"
+            fontWeight="700"
+            letterSpacing="2"
+          >
+            {isPing ? "MS (PING)" : "MBPS"}
+          </text>
+        </g>
+      </svg>
+
+      {/* Bottom Crescent: Phase Badge + Live Stability Curve */}
+      <div className="-mt-4 flex flex-col items-center gap-2">
         <span
-          className="mt-3 text-[11px] sm:text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wider transition-all duration-300 shadow-sm"
+          className="text-[11px] font-bold px-3.5 py-1 rounded-full tracking-wide shadow-sm"
           style={{
-            backgroundColor: `${color}22`,
-            color: color,
+            backgroundColor: `${color}1f`,
+            color,
             border: `1px solid ${color}44`,
           }}
         >
-          {isDown ? "DOWNLOAD" : isUp ? "UPLOAD" : "PING / LATENCY"}
+          {phaseBadge}
         </span>
+        <div className="h-7 flex items-center justify-center">
+          {!isPing && history && history.length >= 2 ? (
+            <LatencySparkline
+              history={history}
+              width={168}
+              height={26}
+              colorOverride={color}
+              zeroBaseline
+            />
+          ) : (
+            <div className="w-[168px] h-[26px] flex items-center justify-center">
+              <span className="text-[10px] font-mono text-slate-500">
+                {isPing
+                  ? lang === "ar"
+                    ? "جاري معايرة زمن المسار..."
+                    : "Calibrating Route RTT..."
+                  : lang === "ar"
+                  ? "جاري مزامنة القنوات..."
+                  : "Synchronizing Streams..."}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1159,81 +2044,96 @@ function ThemeRadioIndicator({ active }) {
   );
 }
 
-// Browser simulation helper for deep 31-second Speedtest-style staged benchmark
-function buildSimulatedSpeedSnapshot(prev, tick) {
+// Browser simulation helper for Ookla-calibrated Speedtest staged benchmark
+function buildSimulatedSpeedSnapshot(prev, tick, mode = "multi") {
+  const isSingle = mode === "single";
+  const downTarget = isSingle ? 418.4 : 652.4;
+  const upTarget = isSingle ? 214.2 : 318.6;
   let phase = "ping";
   let completed = false;
   let progress = 2;
   let downVal = 0;
   let upVal = 0;
+  let activeStreams = isSingle ? 1 : 4;
   let loadedPing = prev?.loadedPingMs || 0;
+  let downLatency = prev?.downloadLatencyMs || 0;
+  let upLatency = prev?.uploadLatencyMs || 0;
   let finalDown = prev?.finalDownloadMbps || 0;
   let finalUp = prev?.finalUploadMbps || 0;
 
   if (tick <= 8) {
-    // Stage 1: Ping & Jitter Probe (~3.6s)
     phase = "ping";
-    progress = Math.min(10, 2 + tick);
+    progress = Math.min(12, 2 + tick);
+    activeStreams = isSingle ? 1 : 4;
   } else if (tick <= 42) {
-    // Stage 2: Download Saturation (15.3s, 12 Streams)
     phase = "download";
     const step = tick - 8;
-    progress = 10 + Math.round((step / 34) * 48);
-    const wave = Math.sin(tick * 0.4);
-    // Smooth ramp-up from slow-start to sustained line rate
-    const rampFactor = Math.min(1, step / 10);
-    downVal = +(rampFactor * (630 + wave * 28)).toFixed(1);
+    progress = 12 + Math.round((step / 34) * 44);
+    activeStreams = isSingle ? 1 : step <= 4 ? 4 : 12;
+    const rampFactor = 1 - Math.exp(-step / 4.2);
+    const wave = Math.sin(tick * 0.25) * (isSingle ? 4.5 : 6.2);
+    downVal = +(rampFactor * downTarget + wave * rampFactor).toFixed(1);
     finalDown = downVal;
-    loadedPing = +(14.5 + Math.sin(tick * 0.6) * 1.5).toFixed(1);
+    downLatency = +(13.8 + Math.sin(tick * 0.35) * 0.7).toFixed(1);
+    loadedPing = downLatency;
   } else if (tick <= 68) {
-    // Stage 3: Upload Saturation (11.7s, 8 Streams)
     phase = "upload";
     const step = tick - 42;
-    progress = 58 + Math.round((step / 26) * 40);
-    downVal = finalDown || 642.5;
-    const wave = Math.cos(tick * 0.45);
-    const rampFactor = Math.min(1, step / 8);
-    upVal = +(rampFactor * (315 + wave * 16)).toFixed(1);
+    progress = 56 + Math.round((step / 26) * 42);
+    activeStreams = isSingle ? 1 : step <= 4 ? 3 : 8;
+    downVal = finalDown || downTarget;
+    const rampFactor = 1 - Math.exp(-step / 3.8);
+    const wave = Math.cos(tick * 0.28) * (isSingle ? 2.8 : 4.2);
+    upVal = +(rampFactor * upTarget + wave * rampFactor).toFixed(1);
     finalUp = upVal;
-    loadedPing = +(16.8 + Math.cos(tick * 0.5) * 1.8).toFixed(1);
+    upLatency = +(16.4 + Math.cos(tick * 0.32) * 0.9).toFixed(1);
+    loadedPing = upLatency;
   } else {
-    // Stage 4: Complete
     phase = "complete";
     completed = true;
     progress = 100;
-    downVal = finalDown || 652.4;
-    upVal = finalUp || 318.6;
+    activeStreams = isSingle ? 1 : 12;
+    downVal = isSingle ? 430.5 : 668.4;
+    upVal = isSingle ? 221.0 : 326.8;
     finalDown = downVal;
     finalUp = upVal;
-    loadedPing = prev?.loadedPingMs || 15.2;
+    downLatency = prev?.downloadLatencyMs || 14.1;
+    upLatency = prev?.uploadLatencyMs || 16.4;
+    loadedPing = upLatency;
   }
 
-  const pingVal = +(11.2 + (tick % 3 === 0 ? 0.3 : -0.2)).toFixed(1);
+  const pingVal = +(11.2 + (tick % 3 === 0 ? 0.2 : -0.1)).toFixed(1);
   const jitterVal = 0.6;
 
   const defaultDown = [
-    210.4, 245.1, 280.6, 315.2, 360.4, 410.8, 465.2, 512.4, 550.8, 585.2,
-    610.5, 628.4, 642.8, 655.1, 670.4, 684.2, 665.8, 652.4, 642.8,
+    260.4, 345.1, 430.6, 515.2, 575.4, 610.8, 635.2, 646.4, 650.8, 655.2,
+    653.5, 651.4, 652.8, 655.1, 654.4, 652.4,
   ];
   const defaultUp = [
-    75.2, 98.4, 125.1, 150.5, 185.2, 215.4, 248.1, 275.4, 298.2, 312.4,
-    325.5, 335.0, 328.4, 322.1, 318.5,
+    125.2, 188.4, 235.1, 270.5, 295.2, 308.4, 315.1, 319.4, 318.2, 317.4,
+    320.5, 318.6,
   ];
   const defaultPing = [
-    12.4, 11.8, 12.1, 11.5, 12.6, 11.4, 11.9, 12.2, 11.3, 11.6, 11.2,
+    12.0, 11.4, 11.2, 11.5, 11.1, 11.3, 11.2, 11.4, 11.0, 11.2,
   ];
 
-  const downHist = completed && (!prev?.downloadHistory?.length)
-    ? defaultDown
-    : downVal > 0
-    ? (prev?.downloadHistory?.length > 0 ? [...prev.downloadHistory, downVal].slice(-50) : [downVal])
-    : (completed ? defaultDown : []);
-  const upHist = completed && (!prev?.uploadHistory?.length)
-    ? defaultUp
-    : upVal > 0
-    ? (prev?.uploadHistory?.length > 0 ? [...prev.uploadHistory, upVal].slice(-50) : [upVal])
-    : (completed ? defaultUp : []);
-  const pingHist = prev?.pingHistory?.length > 0 ? [...prev.pingHistory, pingVal].slice(-50) : defaultPing;
+  const downHist =
+    phase === "download" && downVal > 0
+      ? [...(prev?.downloadHistory || []), downVal].slice(-36)
+      : prev?.downloadHistory?.length > 0
+      ? prev.downloadHistory
+      : completed
+      ? defaultDown
+      : [];
+  const upHist =
+    phase === "upload" && upVal > 0
+      ? [...(prev?.uploadHistory || []), upVal].slice(-36)
+      : prev?.uploadHistory?.length > 0
+      ? prev.uploadHistory
+      : completed
+      ? defaultUp
+      : [];
+  const pingHist = prev?.pingHistory?.length > 0 ? [...prev.pingHistory, pingVal].slice(-40) : defaultPing;
 
   const baseEdges = [
     { provider: "Cloudflare Anycast Edge", endpoint: "1.1.1.1:443", base: 11.2, hist: [11.8, 12.1, 11.4, 11.9, 11.2, 11.5, 11.1, 11.4, 11.2] },
@@ -1261,17 +2161,28 @@ function buildSimulatedSpeedSnapshot(prev, tick) {
     completed,
     progress,
     phase,
+    connectionMode: mode,
+    activeStreams,
     downloadMbps: downVal,
-    peakDownloadMbps: 684.2,
-    finalDownloadMbps: finalDown || (completed ? 652.4 : 0),
+    peakDownloadMbps: isSingle ? 430.5 : 668.4,
+    finalDownloadMbps: finalDown || (completed ? downTarget : 0),
     uploadMbps: upVal,
-    peakUploadMbps: 335.0,
-    finalUploadMbps: finalUp || (completed ? 318.6 : 0),
+    peakUploadMbps: isSingle ? 221.0 : 326.8,
+    finalUploadMbps: finalUp || (completed ? upTarget : 0),
     pingMs: pingVal,
     bestPingMs: 9.8,
+    maxPingMs: 12.4,
     loadedPingMs: loadedPing || 14.8,
+    downloadLatencyMs: downLatency || (phase === "upload" || completed ? 14.1 : 0),
+    uploadLatencyMs: upLatency || (completed ? 16.4 : 0),
     jitterMs: jitterVal,
-    totalMB: +(15.2 + (tick * 4.8)).toFixed(1),
+    packetLoss: 0.0,
+    totalMB: +(15.2 + tick * 4.8).toFixed(1),
+    clientIp: "198.51.100.42",
+    clientIsp: "Saudi Telecom (STC Fiber)",
+    clientLocation: "Riyadh, SA",
+    serverName: "Cloudflare Anycast (RUH)",
+    serverLocation: "POP RUH • Anycast Edge",
     downloadHistory: downHist,
     uploadHistory: upHist,
     pingHistory: pingHist,
@@ -1280,36 +2191,91 @@ function buildSimulatedSpeedSnapshot(prev, tick) {
   };
 }
 
-function buildBrowserSpeedReport(snap, lang = "ar", customVersion = "1.0.3") {
+function escapeHtml(val) {
+  return String(val ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildBrowserSpeedReport(snap, lang = "ar", customVersion = "1.0.4") {
   const isAr = lang === "ar";
   const dir = isAr ? "rtl" : "ltr";
   const down = snap?.finalDownloadMbps || snap?.downloadMbps || 0;
   const up = snap?.finalUploadMbps || snap?.uploadMbps || 0;
   const ping = snap?.pingMs || 0;
-  const loadedPing = snap?.loadedPingMs || (ping > 0 ? ping + 3.8 : 0);
+  const downPing = snap?.downloadLatencyMs || snap?.loadedPingMs || ping;
+  const upPing = snap?.uploadLatencyMs || snap?.loadedPingMs || ping;
   const jitter = snap?.jitterMs || 0;
+  const loss = snap?.packetLoss || 0;
   const totalMB = snap?.totalMB || 0;
-  const grade = down >= 100 && ping <= 35 ? "A+" : down >= 30 ? "A" : "B";
-  const gradeColor = grade === "A+" ? "#059669" : grade === "A" ? "#0284c7" : "#f59e0b";
-  const gradeBg = grade === "A+" ? "#d1fae5" : grade === "A" ? "#e0f2fe" : "#fef3c7";
-  const gradeText = isAr
-    ? (grade === "A+" ? "ممتاز فائق — أداء ألياف بصرية مثالي للألعاب التنافسية وبث 4K/8K المتزامن" : grade === "A" ? "جيد جداً — اتصال سريع ومستقر يلبي كافة متطلبات العمل المنزلي" : "جيد — كافٍ للتصفح والعمل المكتبي")
-    : (grade === "A+" ? "Excellent — Fiber-grade performance for competitive gaming and 4K/8K streaming" : grade === "A" ? "Very Good — Reliable high-speed connection for home and office" : "Fair — Suitable for browsing and HD media");
+  const isSingle = snap?.connectionMode === "single";
+  const modeLabel = escapeHtml(
+    isAr
+      ? isSingle ? "قناة واحدة (Single)" : "متعدد القنوات التكيّفي (Multi)"
+      : isSingle ? "Single Connection" : "Multi-Connection (Adaptive)"
+  );
+  const serverLabel = escapeHtml(snap?.serverName || "Cloudflare Anycast CDN");
+  const ispLabel = escapeHtml(snap?.clientIsp || (isAr ? "شبكة المزود المحلي" : "Detected ISP Network"));
+  let grade = "C";
+  let gradeColor = "#e11d48";
+  let gradeBg = "#ffe4e6";
+  if (down >= 100 && up >= 25 && ping > 0 && ping <= 40 && loss < 1) {
+    grade = "A+";
+    gradeColor = "#059669";
+    gradeBg = "#d1fae5";
+  } else if (down >= 35 && up >= 8 && ping > 0 && ping <= 85 && loss < 2) {
+    grade = "A";
+    gradeColor = "#0284c7";
+    gradeBg = "#e0f2fe";
+  } else if (down >= 12 && loss < 5) {
+    grade = "B";
+    gradeColor = "#f59e0b";
+    gradeBg = "#fef3c7";
+  }
+  const gradeText = escapeHtml(
+    isAr
+      ? grade === "A+"
+        ? "ممتاز فائق — أداء ألياف بصرية مثالي للألعاب التنافسية وبث 4K/8K المتزامن"
+        : grade === "A"
+        ? "جيد جداً — اتصال سريع ومستقر يلبي كافة متطلبات العمل المنزلي"
+        : grade === "B"
+        ? "جيد — كافٍ للتصفح والعمل المكتبي"
+        : "محدود — مناسب للمهام الأساسية فقط وقد يتأثر عند ضغط الاستخدام"
+      : grade === "A+"
+      ? "Excellent — Fiber-grade performance for competitive gaming and 4K/8K streaming"
+      : grade === "A"
+      ? "Very Good — Reliable high-speed connection for home and office"
+      : grade === "B"
+      ? "Fair — Suitable for browsing and HD media"
+      : "Limited — Suitable for basic browsing; heavy media or gaming may experience congestion"
+  );
 
-  const nowFormatted = new Date().toLocaleString(isAr ? "ar-SA" : "en-US");
-  const docTitle = isAr ? "مسار — التقرير الرسمي لفحص سرعة الاتصال" : "Masar — Official Speed Benchmark Report";
-  const printBtnText = isAr ? "حفظ كملف PDF / طباعة التقرير" : "Save as PDF / Print";
+  const safeVersion = escapeHtml(customVersion);
+  const nowFormatted = escapeHtml(new Date().toLocaleString(isAr ? "ar-SA" : "en-US"));
+  const docTitle = escapeHtml(
+    isAr ? "مسار — التقرير الرسمي لفحص سرعة الاتصال" : "Masar — Official Speed Benchmark Report"
+  );
+  const printBtnText = escapeHtml(
+    isAr ? "حفظ كملف PDF / طباعة التقرير" : "Save as PDF / Print"
+  );
 
   const edges = snap?.edgePings || [];
   let edgeRows = "";
   for (const ep of edges) {
+    const isOnline = String(ep.status || "").toLowerCase() === "online";
+    const statusBg = isOnline ? "#dcfce7" : "#fee2e2";
+    const statusFg = isOnline ? "#15803d" : "#b91c1c";
+    const statusLabel = escapeHtml(String(ep.status || "offline").toUpperCase());
     edgeRows += `
       <tr>
-        <td style="font-weight:700">${ep.provider || "Edge"}</td>
-        <td dir="ltr" style="font-family:monospace;color:#64748b">${ep.endpoint || "—"}</td>
+        <td style="font-weight:700">${escapeHtml(ep.provider || "Edge")}</td>
+        <td dir="ltr" style="font-family:monospace;color:#64748b">${escapeHtml(ep.endpoint || "—")}</td>
         <td dir="ltr" style="font-weight:700;color:#0284c7">${ep.avgMs ? ep.avgMs.toFixed(1) + " ms" : "—"}</td>
-        <td dir="ltr" style="color:#7c3aed">${ep.jitterMs ? ep.jitterMs.toFixed(1) + " ms" : "—"}</td>
-        <td><span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d">ONLINE</span></td>
+        <td dir="ltr" style="color:#7c3aed">${ep.bestMs ? ep.bestMs.toFixed(1) + " ms" : "—"}</td>
+        <td><span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:${statusBg};color:${statusFg}">${statusLabel}</span></td>
       </tr>
     `;
   }
@@ -1335,7 +2301,6 @@ function buildBrowserSpeedReport(snap, lang = "ar", customVersion = "1.0.3") {
   .report-container { max-width: 860px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); }
   .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #0284c7; padding-bottom: 20px; margin-bottom: 24px; }
   .brand { display: flex; align-items: center; gap: 14px; }
-  .logo-box { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #0284c7, #10b981); display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-size: 20px; }
   .brand-title { font-size: 20px; font-weight: 800; color: #0f172a; }
   .brand-sub { font-size: 11px; color: #64748b; font-weight: 600; }
   .print-btn { background: #0284c7; color: white; border: none; border-radius: 8px; padding: 8px 18px; font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -1363,20 +2328,23 @@ function buildBrowserSpeedReport(snap, lang = "ar", customVersion = "1.0.3") {
 <div class="report-container">
   <div class="header">
     <div class="brand">
-      <svg width="46" height="46" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="border-radius:12px;box-shadow:0 2px 8px rgba(2,132,199,0.15);flex-shrink:0">
+      <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,0.06);flex-shrink:0">
         <defs>
           <linearGradient id="msg_browser" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#06b6d4"/>
             <stop offset="50%" stop-color="#3b82f6"/>
             <stop offset="100%" stop-color="#10b981"/>
           </linearGradient>
+          <filter id="msg_browser_shadow" x="-10%" y="-10%" width="120%" height="130%" filterUnits="userSpaceOnUse">
+            <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0284c7" flood-opacity="0.28"/>
+          </filter>
         </defs>
-        <rect x="1.5" y="1.5" width="97" height="97" rx="24" fill="#0f172a" stroke="#0ea5e9" stroke-width="2.5"/>
-        <path d="M18 72C18 42 25 24 35 24C45 24 47 52 50 52C53 52 55 24 65 24C75 24 82 42 82 72C74 72 69 58 65 40C61 52 57 69 50 69C43 69 39 52 35 40C31 58 26 72 18 72Z" fill="url(#msg_browser)"/>
+        <rect x="1.5" y="1.5" width="97" height="97" rx="24.5" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+        <path d="M18 72C18 42 25 24 35 24C45 24 47 52 50 52C53 52 55 24 65 24C75 24 82 42 82 72C74 72 69 58 65 40C61 52 57 69 50 69C43 69 39 52 35 40C31 58 26 72 18 72Z" fill="url(#msg_browser)" filter="url(#msg_browser_shadow)"/>
       </svg>
       <div>
         <div class="brand-title">MASAR • مسار</div>
-        <div class="brand-sub">${isAr ? "تقرير فحص سرعة الاتصال المعتمد" : "Certified Speed Benchmark Report"} • v${customVersion}</div>
+        <div class="brand-sub">${isAr ? "تقرير فحص سرعة الاتصال المعتمد" : "Certified Speed Benchmark Report"} • v${safeVersion}</div>
       </div>
     </div>
     <button class="print-btn" onclick="window.print()">${printBtnText}</button>
@@ -1393,41 +2361,47 @@ function buildBrowserSpeedReport(snap, lang = "ar", customVersion = "1.0.3") {
   <div class="sec-heading">${isAr ? "أولاً: السرعات المستدامة المعتمدة" : "1. Certified Sustained Throughput"}</div>
   <div class="hero-grid">
     <div class="hero-card" style="border-top: 4px solid #0284c7">
-      <div class="hero-title" style="color:#0284c7">${isAr ? "التحميل (12 قناة)" : "Download (12 Streams)"}</div>
+      <div class="hero-title" style="color:#0284c7">${isAr ? "التحميل المستدام" : "Sustained Download"}</div>
       <div class="hero-val" style="color:#0284c7">${down.toFixed(1)}</div>
-      <div class="hero-unit">Mbps</div>
+      <div class="hero-unit">Mbps • ↓ ${downPing.toFixed(1)} ms</div>
     </div>
     <div class="hero-card" style="border-top: 4px solid #10b981">
-      <div class="hero-title" style="color:#10b981">${isAr ? "الرفع (8 قنوات)" : "Upload (8 Streams)"}</div>
+      <div class="hero-title" style="color:#10b981">${isAr ? "الرفع المستدام" : "Sustained Upload"}</div>
       <div class="hero-val" style="color:#10b981">${up.toFixed(1)}</div>
-      <div class="hero-unit">Mbps</div>
+      <div class="hero-unit">Mbps • ↑ ${upPing.toFixed(1)} ms</div>
     </div>
     <div class="hero-card" style="border-top: 4px solid #f59e0b">
-      <div class="hero-title" style="color:#f59e0b">${isAr ? "الاستجابة (Ping)" : "Idle Ping"}</div>
+      <div class="hero-title" style="color:#f59e0b">${isAr ? "الاستجابة (Idle)" : "Idle Ping"}</div>
       <div class="hero-val" style="color:#f59e0b">${ping.toFixed(1)}</div>
-      <div class="hero-unit">ms</div>
+      <div class="hero-unit">ms • Jitter ${jitter.toFixed(1)} ms</div>
     </div>
   </div>
 
-  <div class="sec-heading">${isAr ? "ثانياً: مؤشرات الاستجابة وجودة الخط تحت الضغط" : "2. Latency Breakdown & Bufferbloat"}</div>
+  <div class="sec-heading">${isAr ? "ثانياً: مؤشرات الاستجابة وجودة الخط تحت الضغط" : "2. Idle & Loaded Latency Breakdown"}</div>
   <table class="kpi-table">
     <tr>
-      <th>${isAr ? "زمن الاستجابة (بدون ضغط)" : "Idle Ping"}</th>
-      <td dir="ltr" style="font-weight:700;color:#f59e0b">${ping.toFixed(1)} ms</td>
-      <th>${isAr ? "الاستجابة تحت الضغط (Bufferbloat)" : "Loaded Ping"}</th>
-      <td dir="ltr" style="font-weight:700;color:#ea580c">${loadedPing.toFixed(1)} ms</td>
+      <th>${isAr ? "الاستجابة أثناء التحميل (Download Ping)" : "Download Latency"}</th>
+      <td dir="ltr" style="font-weight:700;color:#0284c7">${downPing.toFixed(1)} ms</td>
+      <th>${isAr ? "الاستجابة أثناء الرفع (Upload Ping)" : "Upload Latency"}</th>
+      <td dir="ltr" style="font-weight:700;color:#10b981">${upPing.toFixed(1)} ms</td>
     </tr>
     <tr>
-      <th>${isAr ? "تذبذب الاستجابة (Jitter)" : "Jitter"}</th>
-      <td dir="ltr" style="font-weight:700;color:#7c3aed">${jitter.toFixed(1)} ms</td>
+      <th>${isAr ? "تذبذب الاستجابة / الفقد" : "Jitter / Loss"}</th>
+      <td dir="ltr" style="font-weight:700;color:#7c3aed">${jitter.toFixed(1)} ms (Loss ${loss.toFixed(1)}%)</td>
       <th>${isAr ? "حجم البيانات المستخدمة" : "Data Transferred"}</th>
       <td dir="ltr" style="font-weight:700">${totalMB.toFixed(1)} MB</td>
     </tr>
     <tr>
-      <th>${isAr ? "ذروة التحميل (أعلى سرعة)" : "Peak Download (Max)"}</th>
+      <th>${isAr ? "ذروة التحميل (أعلى سرعة)" : "Peak Download"}</th>
       <td dir="ltr" style="font-weight:700;color:#0284c7">${(snap?.peakDownloadMbps || down).toFixed(1)} Mbps</td>
-      <th>${isAr ? "ذروة الرفع (أعلى سرعة)" : "Peak Upload (Max)"}</th>
+      <th>${isAr ? "ذروة الرفع (أعلى سرعة)" : "Peak Upload"}</th>
       <td dir="ltr" style="font-weight:700;color:#10b981">${(snap?.peakUploadMbps || up).toFixed(1)} Mbps</td>
+    </tr>
+    <tr>
+      <th>${isAr ? "نمط الاتصال" : "Connection Mode"}</th>
+      <td style="font-weight:700">${modeLabel}</td>
+      <th>${isAr ? "المزود وخادم الفحص" : "ISP & Test Server"}</th>
+      <td style="font-weight:600">${ispLabel} → ${serverLabel}</td>
     </tr>
   </table>
 
@@ -1438,24 +2412,24 @@ function buildBrowserSpeedReport(snap, lang = "ar", customVersion = "1.0.3") {
       <tr>
         <th>${isAr ? "المزود" : "Provider"}</th>
         <th>${isAr ? "نقطة الاتصال" : "Endpoint"}</th>
-        <th>${isAr ? "الاستجابة" : "Latency"}</th>
-        <th>${isAr ? "التذبذب" : "Jitter"}</th>
+        <th>${isAr ? "متوسط الاستجابة" : "Avg Latency"}</th>
+        <th>${isAr ? "أفضل استجابة" : "Best RTT"}</th>
         <th>${isAr ? "الحالة" : "Status"}</th>
       </tr>
     </thead>
     <tbody>${edgeRows}</tbody>
   </table>` : ""}
 
-  <div class="sec-heading">${isAr ? "رابعاً: منهجية الفحص والدقة" : "4. Methodology & Compliance"}</div>
+  <div class="sec-heading">${isAr ? "رابعاً: منهجية الفحص والدقة" : "4. Methodology & Ookla Compliance"}</div>
   <div class="method-box">
-    <strong>${isAr ? "معايير Ookla / Fast.com المعتمدة" : "Ookla / Fast.com Compliant"}:</strong>
+    <strong>${isAr ? "معايير Ookla Speedtest القياسية" : "Ookla Speedtest Standard"}:</strong>
     ${isAr
-      ? "تم تشغيل الفحص على مدى 31 ثانية متواصلة عبر 12 قناة تحميل و 8 قنوات رفع. تم استبعاد أول 3 ثوانٍ لتفادي خمول بدء اتصال TCP، وتطبيق المتوسط المشذب بنسبة 80% للخروج بالسرعة الحقيقية المستقرة."
-      : "The test operated for 31 sustained seconds across 12 download and 8 upload streams with initial slow-start discard and 80% trimmed mean calculation."}
+      ? "تم تنفيذ الفحص عبر قنوات HTTP/1.1 TCP مستقلة ومعايرة أولية لسرعة الخط، ثم تقسيم القياس إلى 20 شريحة زمنية واستبعاد أبطأ 30% وأسرع 10% وحساب المتوسط الوسطي (60%) لضمان أقصى ثبات واستقرار."
+      : "Measured over independent calibrated HTTP/1.1 TCP streams with initial ramp-up discard and a 20-slice Ookla trimmed mean (dropping slowest 30% and fastest 10% slices)."}
   </div>
 
   <div class="footer">
-    ${isAr ? `تم استخراج التقرير بواسطة مسار (الإصدار ${customVersion}) — صُنع بكل إتقان • ${nowFormatted}` : `Generated by Masar Visual Diagnostics (v${customVersion}) • ${nowFormatted}`}
+    ${isAr ? `تم استخراج التقرير بواسطة مسار (الإصدار ${safeVersion}) — صُنع بكل إتقان • ${nowFormatted}` : `Generated by Masar Visual Diagnostics (v${safeVersion}) • ${nowFormatted}`}
   </div>
 </div>
 </body>
@@ -1598,7 +2572,8 @@ export default function App() {
     const q = getUrlQueryParam("theme");
     if (q === "light" || q === "dark") return q;
     try {
-      return localStorage.getItem("masar_theme") || "dark";
+      const saved = localStorage.getItem("masar_theme");
+      return saved === "light" ? "light" : "dark";
     } catch {
       return "dark";
     }
@@ -1610,6 +2585,10 @@ export default function App() {
     const q = getUrlQueryParam("tab");
     return q && ["mtr", "dns", "ports", "speed"].includes(q) ? q : "mtr";
   });
+  const [stageState, setStageState] = useState(() => ({
+    key: activeTab,
+    phase: "enter",
+  }));
   const [target, setTarget] = useState(() => getUrlQueryParam("target") || "8.8.8.8");
   const [isRunning, setIsRunning] = useState(() => getUrlQueryParam("trace") === "1");
   const [isMaximized, setIsMaximized] = useState(false);
@@ -1631,6 +2610,7 @@ export default function App() {
 
   useEffect(() => {
     try {
+      document.documentElement.style.setProperty("--masar-zoom", String(uiScale));
       document.body.style.zoom = String(uiScale);
       localStorage.setItem("masar_ui_scale", String(uiScale));
     } catch {
@@ -1706,20 +2686,31 @@ export default function App() {
   const [portReport, setPortReport] = useState(null);
 
   // Continuous Live Speed Benchmark State
+  const [speedMode, setSpeedMode] = useState(() => {
+    const qm = getUrlQueryParam("mode");
+    if (qm === "single" || qm === "multi") return qm;
+    try {
+      return localStorage.getItem("masar_speed_mode") === "single" ? "single" : "multi";
+    } catch {
+      return "multi";
+    }
+  });
+  const [speedMeta, setSpeedMeta] = useState(null);
   const [speedRunning, setSpeedRunning] = useState(() => {
     const sp = getUrlQueryParam("speed");
     return sp === "1" || sp === "download";
   });
   const [speedSnap, setSpeedSnap] = useState(() => {
     const sp = getUrlQueryParam("speed");
+    const initMode = getUrlQueryParam("mode") === "single" ? "single" : "multi";
     if (sp === "complete") {
-      return buildSimulatedSpeedSnapshot(INITIAL_SPEED, 70);
+      return buildSimulatedSpeedSnapshot(INITIAL_SPEED, 70, initMode);
     }
     if (sp === "download") {
-      return buildSimulatedSpeedSnapshot(INITIAL_SPEED, 28);
+      return buildSimulatedSpeedSnapshot(INITIAL_SPEED, 28, initMode);
     }
     if (sp === "1") {
-      return buildSimulatedSpeedSnapshot(INITIAL_SPEED, 8);
+      return buildSimulatedSpeedSnapshot(INITIAL_SPEED, 8, initMode);
     }
     return INITIAL_SPEED;
   });
@@ -1728,9 +2719,150 @@ export default function App() {
   const [speedPdfSaved, setSpeedPdfSaved] = useState(false);
   const speedSimTimerRef = useRef(null);
   const speedSimTickRef = useRef(8);
+  const speedRunningRef = useRef(speedRunning);
+  const lastSpeedSeqRef = useRef(0);
+  const lastSpeedEventAtRef = useRef(0);
+  const speedToggleBusyRef = useRef(false);
+  const isRunningRef = useRef(isRunning);
+  const lastMtrEventAtRef = useRef(0);
+  const initialMtrSyncedRef = useRef(false);
+
+  useEffect(() => {
+    speedRunningRef.current = speedRunning;
+  }, [speedRunning]);
+
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+  }, [isRunning]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("masar_speed_mode", speedMode);
+    } catch {
+      // ignore
+    }
+  }, [speedMode]);
+
+  useEffect(() => {
+    if (activeTab !== "speed" || speedMeta || !hasWailsBackend() || !window.go.main.App.GetSpeedMeta) {
+      return undefined;
+    }
+    let cancelled = false;
+    window.go.main.App.GetSpeedMeta()
+      .then((m) => {
+        if (!cancelled && m && (m.clientIsp || m.serverName)) {
+          setSpeedMeta(m);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, speedMeta]);
 
   const appVersion = useAppVersion();
-  const versionDisplay = appVersion ? `v${appVersion}` : "v1.0.3";
+  const versionDisplay = appVersion ? `v${appVersion}` : "v1.0.4";
+
+  const [soundMuted, setSoundMuted] = useState(() => {
+    try {
+      return localStorage.getItem("masar_sound_muted") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const soundMutedRef = useRef(soundMuted);
+  useEffect(() => {
+    soundMutedRef.current = soundMuted;
+  }, [soundMuted]);
+  const chimePlayedRef = useRef(false);
+
+  const [splashVisible, setSplashVisible] = useState(() => {
+    const sp = getUrlQueryParam("splash");
+    if (sp === "0" || getUrlQueryParam("nosplash") === "1") return false;
+    return true;
+  });
+  const [splashExiting, setSplashExiting] = useState(false);
+  const [splashProgress, setSplashProgress] = useState(() =>
+    getUrlQueryParam("splash") === "1" ? 78 : 6
+  );
+  const [bootRevealPhase, setBootRevealPhase] = useState(() => {
+    const sp = getUrlQueryParam("splash");
+    if (sp === "0" || getUrlQueryParam("nosplash") === "1") return "ready";
+    return "holding";
+  });
+  const bootRevealStartedRef = useRef(
+    getUrlQueryParam("splash") === "0" || getUrlQueryParam("nosplash") === "1"
+  );
+
+  useEffect(() => {
+    if (splashVisible && !splashExiting) {
+      return undefined;
+    }
+    if (bootRevealStartedRef.current) {
+      return undefined;
+    }
+    bootRevealStartedRef.current = true;
+    setBootRevealPhase("entering");
+    const timer = setTimeout(() => {
+      setBootRevealPhase("ready");
+    }, 950);
+    return () => clearTimeout(timer);
+  }, [splashVisible, splashExiting]);
+
+  const handleToggleStartupSound = () => {
+    setSoundMuted((prev) => {
+      const next = !prev;
+      soundMutedRef.current = next;
+      try {
+        localStorage.setItem("masar_sound_muted", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      if (!next) {
+        playMasarStartupChime(false);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!splashVisible) return undefined;
+    if (!chimePlayedRef.current) {
+      chimePlayedRef.current = true;
+      if (!soundMutedRef.current) {
+        playMasarStartupChime(false);
+      }
+    }
+    if (getUrlQueryParam("splash") === "1") {
+      setSplashProgress(78);
+      return undefined;
+    }
+    const startTs = performance.now();
+    const durationMs = 1950;
+    let rafId = 0;
+    let exitTimer = null;
+
+    const tick = (now) => {
+      const elapsed = now - startTs;
+      const ratio = Math.min(1, Math.max(0, elapsed / durationMs));
+      const eased = 1 - Math.pow(1 - ratio, 2.5);
+      setSplashProgress(Math.min(100, Math.round(6 + eased * 94)));
+      if (ratio < 1) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        setSplashExiting(true);
+        exitTimer = setTimeout(() => {
+          setSplashVisible(false);
+        }, 420);
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (exitTimer) clearTimeout(exitTimer);
+    };
+  }, [splashVisible]);
 
   const t = I18N[lang] || I18N.en;
 
@@ -1759,20 +2891,22 @@ export default function App() {
       const rootEl = document.documentElement;
       const bodyEl = document.body;
       rootEl.classList.toggle("theme-light", isLight);
+      rootEl.classList.remove("theme-emerald", "theme-glass");
       rootEl.classList.toggle("dark", !isLight);
       rootEl.style.colorScheme = isLight ? "light" : "dark";
       if (bodyEl) {
         bodyEl.classList.toggle("theme-light", isLight);
+        bodyEl.classList.remove("theme-emerald", "theme-glass");
       }
     }
     const applyNativeWindowTheme = () => {
       if (!hasWailsRuntime()) return;
       if (isLight) {
         window.runtime.WindowSetLightTheme?.();
-        window.runtime.WindowSetBackgroundColour?.(241, 245, 249, 255);
+        window.runtime.WindowSetBackgroundColour?.(220, 227, 236, 255);
       } else {
         window.runtime.WindowSetDarkTheme?.();
-        window.runtime.WindowSetBackgroundColour?.(5, 8, 17, 255);
+        window.runtime.WindowSetBackgroundColour?.(11, 15, 25, 255);
       }
     };
     applyNativeWindowTheme();
@@ -1785,6 +2919,8 @@ export default function App() {
 
     const offUpdate = window.runtime.EventsOn("mtr:update", (snap) => {
       if (snap) {
+        lastMtrEventAtRef.current = Date.now();
+        initialMtrSyncedRef.current = true;
         setSnapshot(snap);
         if (typeof snap.running === "boolean") {
           setIsRunning(snap.running);
@@ -1794,6 +2930,7 @@ export default function App() {
 
     const offStatus = window.runtime.EventsOn("mtr:status", (st) => {
       if (st && typeof st.running === "boolean") {
+        lastMtrEventAtRef.current = Date.now();
         setIsRunning(st.running);
       }
     });
@@ -1806,16 +2943,29 @@ export default function App() {
     });
 
     const offSpeedUpdate = window.runtime.EventsOn("speed:update", (snap) => {
-      if (snap) {
-        setSpeedSnap(snap);
-        if (typeof snap.running === "boolean") {
-          setSpeedRunning(snap.running);
-        }
+      if (!snap) return;
+      const incomingSeq = typeof snap.seq === "number" ? snap.seq : 0;
+      if (incomingSeq > 0 && incomingSeq < lastSpeedSeqRef.current) {
+        return;
+      }
+      if (incomingSeq > 0) {
+        lastSpeedSeqRef.current = incomingSeq;
+      }
+      lastSpeedEventAtRef.current = Date.now();
+      setSpeedSnap(snap);
+      if (snap.error) {
+        setErrorBanner(String(snap.error));
+        setSpeedRunning(false);
+        return;
+      }
+      if (typeof snap.running === "boolean") {
+        setSpeedRunning(snap.running && !snap.completed);
       }
     });
 
     const offSpeedStatus = window.runtime.EventsOn("speed:status", (st) => {
       if (st && typeof st.running === "boolean") {
+        lastSpeedEventAtRef.current = Date.now();
         setSpeedRunning(st.running);
       }
     });
@@ -1823,30 +2973,73 @@ export default function App() {
     const syncInterval = setInterval(async () => {
       if (!hasWailsBackend()) return;
       try {
-        if (window.go.main.App.GetLastSnapshot) {
+        const mtrRecentlyStreamed =
+          isRunningRef.current && Date.now() - lastMtrEventAtRef.current < 1500;
+        const shouldPollMtr =
+          (!initialMtrSyncedRef.current || isRunningRef.current) && !mtrRecentlyStreamed;
+        if (shouldPollMtr && window.go.main.App.GetLastSnapshot) {
           const snap = await window.go.main.App.GetLastSnapshot();
+          initialMtrSyncedRef.current = true;
           if (snap) {
             if (typeof snap.running === "boolean") {
-              setIsRunning(snap.running);
+              setIsRunning((prevRun) => (prevRun === snap.running ? prevRun : snap.running));
             }
             if (snap.hops && snap.hops.length > 0) {
-              setSnapshot(snap);
+              setSnapshot((prev) => {
+                if (
+                  prev.updatedAt === snap.updatedAt &&
+                  prev.running === snap.running &&
+                  prev.target === snap.target &&
+                  (prev.hops?.length || 0) === snap.hops.length
+                ) {
+                  return prev;
+                }
+                return snap;
+              });
             }
           }
         }
-        if (window.go.main.App.GetLastSpeedSnapshot) {
+        const recentlyStreamed =
+          speedRunningRef.current && Date.now() - lastSpeedEventAtRef.current < 1500;
+        if (speedRunningRef.current && !recentlyStreamed && window.go.main.App.GetLastSpeedSnapshot) {
           const sp = await window.go.main.App.GetLastSpeedSnapshot();
           if (sp && typeof sp.running === "boolean") {
-            setSpeedRunning(sp.running);
-            if (sp.running || sp.totalMB > 0) {
-              setSpeedSnap(sp);
+            const pollSeq = typeof sp.seq === "number" ? sp.seq : 0;
+            if (pollSeq > 0 && pollSeq < lastSpeedSeqRef.current) {
+              return;
+            }
+            if (pollSeq > lastSpeedSeqRef.current) {
+              lastSpeedSeqRef.current = pollSeq;
+            }
+            setSpeedRunning((prevRun) => (prevRun === sp.running ? prevRun : sp.running));
+            if (sp.error) {
+              setErrorBanner(String(sp.error));
+            }
+            if (sp.running || sp.completed || sp.error || sp.totalMB > 0) {
+              setSpeedSnap((prev) => {
+                if (
+                  prev.seq === sp.seq &&
+                  prev.running === sp.running &&
+                  prev.completed === sp.completed &&
+                  prev.phase === sp.phase &&
+                  prev.error === sp.error &&
+                  prev.progress === sp.progress &&
+                  prev.downloadMbps === sp.downloadMbps &&
+                  prev.uploadMbps === sp.uploadMbps &&
+                  prev.pingMs === sp.pingMs &&
+                  prev.updatedAt === sp.updatedAt
+                ) {
+                  return prev;
+                }
+                return sp;
+              });
             }
           }
         }
       } catch {
         // ignore transient RPC errors
       }
-    }, 500);
+    }, 800);
 
     return () => {
       clearInterval(syncInterval);
@@ -2140,58 +3333,77 @@ export default function App() {
   };
 
   // Staged Speedtest Benchmark Runner (Start / Stop)
-  const handleToggleSpeedBenchmark = async () => {
-    setErrorBanner("");
-    if (speedRunning) {
-      if (hasWailsBackend() && window.go.main.App.StopSpeedBenchmark) {
-        await window.go.main.App.StopSpeedBenchmark();
-      }
-      if (speedSimTimerRef.current) {
-        clearInterval(speedSimTimerRef.current);
-        speedSimTimerRef.current = null;
-      }
-      setSpeedRunning(false);
-    } else {
-      // Reset snapshot state for clean run
-      setSpeedSnap((prev) => ({
-        ...prev,
-        completed: false,
-        progress: 0,
-        phase: "ping",
-        downloadMbps: 0,
-        uploadMbps: 0,
-      }));
-
-      if (hasWailsBackend() && window.go.main.App.StartSpeedBenchmark) {
-        try {
-          setSpeedRunning(true);
-          await window.go.main.App.StartSpeedBenchmark();
-        } catch (err) {
-          setSpeedRunning(false);
-          setErrorBanner(typeof err === "string" ? err : err?.message || String(err));
+  const handleToggleSpeedBenchmark = async (overrideMode) => {
+    if (speedToggleBusyRef.current) return;
+    speedToggleBusyRef.current = true;
+    try {
+      const activeMode =
+        overrideMode === "single" || overrideMode === "multi" ? overrideMode : speedMode;
+      setErrorBanner("");
+      if (speedRunning) {
+        if (hasWailsBackend() && window.go.main.App.StopSpeedBenchmark) {
+          await window.go.main.App.StopSpeedBenchmark();
         }
-      } else {
-        speedSimTickRef.current = 0;
-        setSpeedRunning(true);
         if (speedSimTimerRef.current) {
           clearInterval(speedSimTimerRef.current);
+          speedSimTimerRef.current = null;
         }
-        speedSimTimerRef.current = setInterval(() => {
-          speedSimTickRef.current += 1;
-          const tk = speedSimTickRef.current;
-          setSpeedSnap((prev) => {
-            const nextSnap = buildSimulatedSpeedSnapshot(prev, tk);
-            if (nextSnap.completed) {
-              if (speedSimTimerRef.current) {
-                clearInterval(speedSimTimerRef.current);
-                speedSimTimerRef.current = null;
-              }
-              setSpeedRunning(false);
+        setSpeedRunning(false);
+      } else {
+        setSpeedSnap({
+          ...INITIAL_SPEED,
+          ...(speedMeta || {}),
+          running: true,
+          completed: false,
+          error: "",
+          progress: 1,
+          phase: "ping",
+          connectionMode: activeMode,
+          activeStreams: activeMode === "single" ? 1 : 4,
+        });
+
+        if (
+          hasWailsBackend() &&
+          (window.go.main.App.StartSpeedBenchmarkWithMode ||
+            window.go.main.App.StartSpeedBenchmark)
+        ) {
+          try {
+            lastSpeedEventAtRef.current = Date.now();
+            setSpeedRunning(true);
+            if (window.go.main.App.StartSpeedBenchmarkWithMode) {
+              await window.go.main.App.StartSpeedBenchmarkWithMode(activeMode);
+            } else {
+              await window.go.main.App.StartSpeedBenchmark();
             }
-            return nextSnap;
-          });
-        }, 450);
+          } catch (err) {
+            setSpeedRunning(false);
+            setErrorBanner(typeof err === "string" ? err : err?.message || String(err));
+          }
+        } else {
+          speedSimTickRef.current = 0;
+          setSpeedRunning(true);
+          if (speedSimTimerRef.current) {
+            clearInterval(speedSimTimerRef.current);
+          }
+          speedSimTimerRef.current = setInterval(() => {
+            speedSimTickRef.current += 1;
+            const tk = speedSimTickRef.current;
+            setSpeedSnap((prev) => {
+              const nextSnap = buildSimulatedSpeedSnapshot(prev, tk, activeMode);
+              if (nextSnap.completed) {
+                if (speedSimTimerRef.current) {
+                  clearInterval(speedSimTimerRef.current);
+                  speedSimTimerRef.current = null;
+                }
+                setSpeedRunning(false);
+              }
+              return nextSnap;
+            });
+          }, 420);
+        }
       }
+    } finally {
+      speedToggleBusyRef.current = false;
     }
   };
 
@@ -2199,13 +3411,25 @@ export default function App() {
     const down = speedSnap.finalDownloadMbps || speedSnap.downloadMbps || 0;
     const up = speedSnap.finalUploadMbps || speedSnap.uploadMbps || 0;
     const ping = speedSnap.pingMs || 0;
-    const loadedPing = speedSnap.loadedPingMs || (ping > 0 ? ping + 3.8 : 0);
+    const downPing = speedSnap.downloadLatencyMs || speedSnap.loadedPingMs || ping;
+    const upPing = speedSnap.uploadLatencyMs || speedSnap.loadedPingMs || ping;
     const jitter = speedSnap.jitterMs || 0;
-    const grade = down >= 100 && ping <= 35 ? "A+" : down >= 30 ? "A" : "B";
+    const loss = speedSnap.packetLoss || 0;
+    const modeStr = (speedSnap.connectionMode || speedMode) === "single"
+      ? (lang === "ar" ? "قناة واحدة (Single)" : "Single Connection")
+      : (lang === "ar" ? "متعدد القنوات (Multi)" : "Multi-Connection");
+    const grade =
+      down >= 100 && up >= 25 && ping > 0 && ping <= 40 && loss < 1
+        ? "A+"
+        : down >= 35 && up >= 8 && ping > 0 && ping <= 85 && loss < 2
+        ? "A"
+        : down >= 12 && loss < 5
+        ? "B"
+        : "C";
     const text =
       lang === "ar"
-        ? `🚀 نتيجة فحص سرعة مسار الموسع (Masar ${versionDisplay}):\n• التحميل (12 قناة): ${down.toFixed(1)} Mbps\n• الرفع (8 قنوات): ${up.toFixed(1)} Mbps\n• الاستجابة بدون ضغط (Idle): ${ping.toFixed(1)} ms\n• الاستجابة تحت الضغط (Loaded): ${loadedPing.toFixed(1)} ms\n• التذبذب (Jitter): ${jitter.toFixed(1)} ms\n• التقييم: الدرجة ${grade} (خوادم Anycast CDN)`
-        : `🚀 Masar Deep Saturation Speed Test (${versionDisplay}):\n• Download (12 Streams): ${down.toFixed(1)} Mbps\n• Upload (8 Streams): ${up.toFixed(1)} Mbps\n• Idle Ping: ${ping.toFixed(1)} ms\n• Loaded Ping: ${loadedPing.toFixed(1)} ms\n• Jitter: ${jitter.toFixed(1)} ms\n• Rating: Grade ${grade} (Anycast CDN)`;
+        ? `🚀 نتيجة فحص سرعة مسار (${versionDisplay} — ${modeStr}):\n• سرعة التحميل (أعلى قراءة): ${down.toFixed(1)} Mbps\n• سرعة الرفع (أعلى قراءة): ${up.toFixed(1)} Mbps\n• الاستجابة: الخمول ${ping.toFixed(1)} ms | أثناء التحميل ${downPing.toFixed(1)} ms | أثناء الرفع ${upPing.toFixed(1)} ms\n• التذبذب: ${jitter.toFixed(1)} ms | فقد الحزم: ${loss.toFixed(1)}%\n• الخادم: ${speedSnap.serverName || "Cloudflare Anycast"} | التقييم: ${grade}`
+        : `🚀 Masar Speedtest Results (${versionDisplay} — ${modeStr}):\n• Download (Peak): ${down.toFixed(1)} Mbps\n• Upload (Peak): ${up.toFixed(1)} Mbps\n• Latency: Idle ${ping.toFixed(1)} ms | Download ${downPing.toFixed(1)} ms | Upload ${upPing.toFixed(1)} ms\n• Jitter: ${jitter.toFixed(1)} ms | Loss: ${loss.toFixed(1)}%\n• Server: ${speedSnap.serverName || "Cloudflare Anycast"} | Grade: ${grade}`;
 
     try {
       if (hasWailsRuntime() && window.runtime.ClipboardSetText) {
@@ -2258,6 +3482,7 @@ export default function App() {
           a.download = `masar-speed-report-${new Date().toISOString().slice(0, 10)}.html`;
           a.click();
         }
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
         setSpeedPdfSaved(true);
         setTimeout(() => setSpeedPdfSaved(false), 3800);
         showReportConfirmation(
@@ -2396,12 +3621,12 @@ export default function App() {
           },
           {
             badge: "القسم الرابع",
-            title: "قياس السرعة المباشر والخوادم العالمية",
+            title: "قياس السرعة الاحترافي بمعايير Speedtest",
             summary:
-              "محرك قياس سرعة واستجابة حي ومستمر يعمل عبر اتصالك الفعلي ولا يتوقف إلا عند ضغطك على زر الإيقاف.",
+              "محرك قياس سرعة واستجابة بمعايير Ookla القياسية: معايرة أولية لسرعة الخط، قنوات TCP مستقلة، ومتوسط مشذّب من 20 شريحة زمنية.",
             points: [
-              "قياس متعدد القنوات: يفتح 4 قنوات متوازية للتحميل و3 قنوات للرفع لقياس السرعة الفعلية لخط الإنترنت بالميجابت في الثانية مع تسجيل أعلى ذروة سرعة وحجم البيانات المتدفقة.",
-              "مراقبة الخوادم العالمية كل ثانية: يقيس زمن الاستجابة والتذبذب بشكل متواصل كل ثانية نحو أشهر السحب العالمية (كلاودفلير وجوجل وكواد 9 وأوبن دي إن إس) مع رسم منحنى استقرار حي لكل خادم.",
+              "نمط متعدد القنوات أو قناة واحدة (Multi / Single): تكيّف تلقائي بين 4 إلى 12 قناة تحميل (و3 إلى 8 للرفع) عبر HTTP/1.1 المستقلة، مع إمكانية اختيار جلسة TCP مفردة.",
+              "منهجية 20 شريحة واستبعاد الإحماء: استبعاد مرحلة بدء اتصال TCP ثم شطب أبطأ 30% وأسرع 10% من الشرائح لاستخراج سرعة ثابتة ودقيقة، مع قياس الاستجابة في الخمول وتحت ضغط التحميل والرفع.",
             ],
           },
           {
@@ -2452,12 +3677,12 @@ export default function App() {
           },
           {
             badge: "Section 4",
-            title: "Live Continuous Bandwidth & Global Edge Benchmark",
+            title: "Speedtest-Calibrated Bandwidth & Edge Benchmark",
             summary:
-              "Streams multi-connection download/upload bandwidth tests and 1-second global Anycast edge pings continuously until stopped.",
+              "Follows Ookla Speedtest standards: adaptive HTTP/1.1 TCP calibration, idle vs. loaded latency tracking, and 20-slice trimmed mean scoring.",
             points: [
-              "Multi-Stream Bandwidth Engine: Uses 4 parallel download streams and 3 upload streams to measure real-time and peak throughput (Mbps) and total data streamed (MB).",
-              "Global Anycast Edge Matrix: Continuously probes Cloudflare, Google, Quad9, and OpenDNS edges every second with Best/Avg latency and live sparklines.",
+              "Multi & Single Connection Modes: Scales dynamically across independent HTTP/1.1 TCP streams (up to 12 download / 8 upload) or tests single-stream performance with warmup buffer exclusion and slowest-30% / fastest-10% slice trimming.",
+              "Loaded Ping & Global Edge Matrix: Separately tracks Idle Ping, Download Latency, Upload Latency (Bufferbloat), and continuous Anycast latencies across Cloudflare, Google, Quad9, and OpenDNS.",
             ],
           },
           {
@@ -2477,33 +3702,68 @@ export default function App() {
     <div
       dir={t.dir}
       lang={lang}
-      className={`min-h-screen bg-slate-950 text-slate-100 flex flex-col select-none pt-10 transition-colors duration-300 ${
+      style={{ height: "calc(100vh / var(--masar-zoom, 1))" }}
+      className={`bg-[#0b0f19] text-slate-100 flex flex-col overflow-hidden select-none transition-colors duration-300 ${
         uiTheme === "light" ? "theme-light" : ""
+      } ${
+        bootRevealPhase === "holding"
+          ? "masar-workspace-holding"
+          : bootRevealPhase === "entering"
+          ? "masar-workspace-entering"
+          : ""
       }`}
     >
-      {/* Sleek Custom Frameless Titlebar */}
+      {splashVisible && (
+        <MasarStartupSplash
+          lang={lang}
+          isLight={uiTheme === "light"}
+          versionDisplay={versionDisplay}
+          progress={splashProgress}
+          exiting={splashExiting}
+          soundMuted={soundMuted}
+          onToggleSound={handleToggleStartupSound}
+          onSkip={() => {
+            if (!splashExiting) {
+              setSplashProgress(100);
+              setSplashExiting(true);
+              setTimeout(() => setSplashVisible(false), 320);
+            }
+          }}
+        />
+      )}
+
+      {/* Sleek Custom Frameless Titlebar (hidden while startup splash is active) */}
       <div
         dir="ltr"
-        className="wails-drag h-10 w-full bg-slate-950/95 flex items-center justify-between px-3 select-none z-50 fixed top-0 left-0 right-0 backdrop-blur-md"
+        className={`masar-boot-titlebar wails-drag h-10 w-full shrink-0 flex items-center justify-between pl-3.5 pr-1.5 select-none z-50 ${
+          splashVisible && !splashExiting ? "pointer-events-none" : ""
+        } ${
+          uiTheme === "light"
+            ? "bg-[#e6ecf3] border-b border-slate-900/[0.12]"
+            : "bg-[#0e1422] border-b border-slate-700/50"
+        }`}
         style={{ WebkitAppRegion: "drag", "--wails-draggable": "drag" }}
         onDoubleClick={handleToggleMaximize}
       >
         {/* Left: Branding + Window Title */}
         <div className="flex items-center gap-2.5 pointer-events-none">
-          <MasarLogo size={21} className="shrink-0 drop-shadow-sm" />
-          <span className="text-xs font-semibold text-slate-200 tracking-wide flex items-center gap-1.5">
-            <span>Masar</span>
-            <span>مسار</span>
-            <span className="text-[10px] text-sky-400 bg-sky-950/70 border border-sky-800/50 px-1.5 py-0.2 rounded font-mono">
+          <MasarLogo size={20} className="shrink-0 drop-shadow-sm" />
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-bold text-slate-100 tracking-tight leading-none flex items-center gap-1.5">
+              <span>Masar</span>
+              <span>مسار</span>
+            </span>
+            <span className="text-[10px] font-semibold leading-none text-sky-300 bg-sky-500/10 border border-sky-500/25 px-2 py-1 rounded-full font-mono">
               {versionDisplay}
             </span>
-          </span>
-          <span className="hidden sm:inline-block text-[11px] text-slate-500 border-l border-slate-800 pl-2.5">
+          </div>
+          <span className="hidden sm:inline-block h-3.5 w-px bg-slate-700/70 mx-0.5" />
+          <span className="hidden sm:inline-block text-[11px] font-medium text-slate-400/90 leading-none">
             {t.appSubtitle}
           </span>
           {(isRunning || speedRunning) && (
-            <span className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-full ml-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="flex items-center gap-1.5 text-[10px] font-semibold leading-none text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-full ml-1">
+              <StatusLottie variant="loading" size={13} />
               {t.tracingLive}
             </span>
           )}
@@ -2511,23 +3771,25 @@ export default function App() {
 
         {/* Right: Window Controls & UI Scaling */}
         <div
-          className="wails-no-drag flex items-center gap-1.5"
+          className="wails-no-drag flex items-center gap-1"
           style={{ WebkitAppRegion: "no-drag", "--wails-draggable": "no-drag" }}
         >
           {/* Quick UI Scale / Zoom Capsule */}
-          <div className="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg px-1 py-0.5 mr-1 gap-0.5 text-[11px] text-slate-300">
+          <div className="inline-flex items-center h-6 bg-sky-500/10 border border-sky-500/25 rounded-full px-1 gap-0.5 text-sky-300">
             <button
               type="button"
               onClick={handleZoomOut}
-              className="h-6 w-5 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-white transition font-mono font-bold"
+              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-sky-500/20 text-sky-300/80 hover:text-sky-200 transition"
               title={t.zoomOut}
             >
-              −
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M2 5H8" strokeLinecap="round" />
+              </svg>
             </button>
             <button
               type="button"
               onClick={handleZoomReset}
-              className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-[10px] font-mono font-semibold text-slate-300 hover:text-sky-300 transition"
+              className="h-5 min-w-[34px] px-1 flex items-center justify-center rounded-full hover:bg-sky-500/20 text-[10px] font-mono tabular-nums font-semibold leading-none text-sky-300 hover:text-sky-200 transition"
               title={t.zoomReset}
             >
               {Math.round(uiScale * 100)}%
@@ -2535,27 +3797,32 @@ export default function App() {
             <button
               type="button"
               onClick={handleZoomIn}
-              className="h-6 w-5 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-white transition font-mono font-bold"
+              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-sky-500/20 text-sky-300/80 hover:text-sky-200 transition"
               title={t.zoomIn}
             >
-              +
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M5 2V8M2 5H8" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
+
+          <span className="h-4 w-px bg-slate-800/80 mx-1" />
+
           <button
             type="button"
             onClick={handleMinimize}
-            className="h-7 w-9 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition"
+            className="h-7 w-9 flex items-center justify-center rounded-md hover:bg-slate-800/80 text-slate-400 hover:text-slate-100 transition"
             title={lang === "ar" ? "تصغير" : "Minimize"}
           >
             <svg width="10" height="2" viewBox="0 0 10 2" fill="currentColor">
-              <rect width="10" height="2" rx="1" />
+              <rect width="10" height="1.5" rx="0.75" />
             </svg>
           </button>
 
           <button
             type="button"
             onClick={handleToggleMaximize}
-            className="h-7 w-9 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition"
+            className="h-7 w-9 flex items-center justify-center rounded-md hover:bg-slate-800/80 text-slate-400 hover:text-slate-100 transition"
             title={
               isMaximized
                 ? lang === "ar"
@@ -2595,7 +3862,7 @@ export default function App() {
           <button
             type="button"
             onClick={handleClose}
-            className="h-7 w-9 flex items-center justify-center rounded hover:bg-red-600 text-slate-400 hover:text-white transition"
+            className="h-7 w-9 flex items-center justify-center rounded-md hover:bg-red-500/90 text-slate-400 hover:text-white transition"
             title={lang === "ar" ? "إغلاق" : "Close"}
           >
             <svg
@@ -2612,8 +3879,12 @@ export default function App() {
         </div>
       </div>
 
+      <div
+        id="masar-scroll-root"
+        className="masar-scroll-viewport relative flex-1 min-h-0 flex flex-col"
+      >
       {/* Top Section: Same rounded-2xl border and max-w-7xl alignment edges as the cards below */}
-      <header className="max-w-7xl w-full mx-auto px-6 pt-5">
+      <header className="masar-boot-header max-w-7xl w-full mx-auto px-6 pt-5">
         <div className="relative overflow-hidden bg-slate-900/60 border border-slate-800/90 rounded-2xl p-4 shadow-lg flex flex-col gap-3">
           <SectionAmbientBackground variant={activeTab} />
           <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
@@ -2635,15 +3906,22 @@ export default function App() {
                         setErrorBanner("");
                         setActiveTab(tab.id);
                       }}
-                      className={`masar-nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 ${
+                      className={`masar-nav-btn masar-icon-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 ${
                         active
                           ? "bg-sky-500/20 text-sky-200 border border-sky-400/50 shadow-md shadow-sky-500/15"
-                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/80 border border-transparent"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] border border-transparent"
                       }`}
                       title={tab.label}
                     >
-                      <TabIcon id={tab.id} active={active} />
-                      <span className="tracking-wide">{menuCompact ? tab.short : tab.label}</span>
+                      <span className="masar-icon-target">
+                        <TabIcon id={tab.id} active={active} />
+                      </span>
+                      <MorphLabel
+                        compact={menuCompact}
+                        compactText={tab.short}
+                        fullText={tab.label}
+                        className="tracking-wide"
+                      />
                       {active && (
                         <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shadow-sm shadow-sky-400 animate-pulse" />
                       )}
@@ -2655,26 +3933,52 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setMenuCompact((prev) => !prev)}
-                className={`masar-well h-9 px-2.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold transition ${
+                className={`masar-well masar-nav-btn masar-icon-btn h-9 px-2.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   menuCompact
-                    ? "bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sm"
+                    ? "bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sm shadow-sky-500/15"
                     : "bg-slate-950 border-slate-800/90 text-slate-400 hover:text-slate-200 hover:bg-slate-900"
                 }`}
                 title={t.menuToggleTitle}
               >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="4" width="18" height="16" rx="2" />
-                  <path d="M9 4v16" />
-                </svg>
-                <span className="text-[11px] hidden md:inline">
-                  {menuCompact ? t.menuCompact : t.menuExpanded}
+                <span className="masar-icon-target">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="16" rx="2" />
+                    <path
+                      d="M10.5 4v16"
+                      className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                      style={{ transform: menuCompact ? "translateX(-3px)" : "translateX(0px)" }}
+                    />
+                    <path
+                      d="M16.5 9.5L13.5 12l3 2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                      style={{
+                        transformOrigin: "15px 12px",
+                        transform: menuCompact ? "rotate(180deg) translateX(1px)" : "rotate(0deg)",
+                      }}
+                    />
+                  </svg>
+                </span>
+                <span className="text-[11px] hidden md:inline-flex items-center">
+                  <MorphLabel
+                    compact={menuCompact}
+                    compactText={t.menuCompact}
+                    fullText={t.menuExpanded}
+                  />
                 </span>
               </button>
             </div>
 
-            {/* Quick Targets & Target Controls (Shown on Visual MTR Tab) */}
-            {activeTab === "mtr" && (
-              <div className="flex flex-wrap items-center gap-2">
+            {/* Quick Targets & Target Controls (Shown in sync with Visual MTR Stage) */}
+            {stageState.key === "mtr" && (
+              <div
+                className={`flex flex-wrap items-center gap-2 ${
+                  stageState.phase === "exit" && activeTab !== "mtr"
+                    ? "masar-page-exit"
+                    : "masar-page-enter"
+                }`}
+              >
                 <div className="masar-well flex items-center bg-slate-950 border border-slate-800/90 rounded-xl p-1 gap-1">
                   {PRESETS.map((preset) => {
                     const active = target.trim() === preset.value;
@@ -2703,7 +4007,7 @@ export default function App() {
                     e.preventDefault();
                     startTrace(target);
                   }}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 shrink-0"
                 >
                   <input
                     dir="ltr"
@@ -2717,22 +4021,26 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleStartStop}
-                    className={`px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow-sm ${
+                    className={`group masar-cta-sheen masar-action-btn shrink-0 whitespace-nowrap active:scale-95 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-tight transition-all duration-300 flex items-center gap-2 border ${
                       isRunning
-                        ? "bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40"
-                        : "bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-sky-500/20"
+                        ? "bg-red-500/20 hover:bg-red-500/30 text-red-300 border-red-500/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_16px_-4px_rgba(239,68,68,0.28)]"
+                        : "bg-gradient-to-r from-sky-500 via-sky-400 to-cyan-400 hover:from-sky-400 hover:via-cyan-400 hover:to-emerald-400 text-slate-950 border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_16px_-4px_rgba(14,165,233,0.38)]"
                     }`}
                   >
                     {isRunning ? (
                       <>
-                        <span className="w-2 h-2 rounded-sm bg-red-400" />
+                        <span className="h-4 w-4 shrink-0 rounded-md bg-red-500/25 text-red-300 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-90 group-hover:scale-110">
+                          <span className="w-2 h-2 rounded-sm bg-red-400" />
+                        </span>
                         <span>{t.stopTrace}</span>
                       </>
                     ) : (
                       <>
-                        <svg className="w-3 h-3 fill-current" viewBox="0 0 12 12">
-                          <path d="M2.5 1.5L10.5 6L2.5 10.5V1.5Z" />
-                        </svg>
+                        <span className="h-4 w-4 shrink-0 rounded-md bg-slate-950/15 text-slate-950 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[360deg] group-hover:scale-110">
+                          <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 12 12">
+                            <path d="M2.5 1.5L10.5 6L2.5 10.5V1.5Z" />
+                          </svg>
+                        </span>
                         <span>{t.startTrace}</span>
                       </>
                     )}
@@ -2755,12 +4063,10 @@ export default function App() {
       </header>
 
       {localizedErrorBanner && (
-        <div className="max-w-7xl w-full mx-auto px-6 pt-4">
+        <div className="masar-page-enter max-w-7xl w-full mx-auto px-6 pt-4">
           <div className="rounded-xl bg-red-950/60 border border-red-500/50 px-4 py-3 flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
-              <span className="text-red-400 font-bold text-lg leading-none mt-0.5">
-                ⚠
-              </span>
+              <StatusLottie variant="error" size={26} className="mt-0.5" />
               <div>
                 <h3 className="text-sm font-semibold text-red-200">
                   {t.errorTitle}
@@ -2781,17 +4087,21 @@ export default function App() {
         </div>
       )}
 
-      {activeTab === "mtr" && (
+      <div className="flex-1 flex flex-col">
+      <TabStage
+        activeKey={activeTab}
+        onStageChange={(key, phase) => setStageState({ key, phase })}
+        renderTab={(renderedTab) => (
+          <>
+            {renderedTab === "mtr" && (
         <main
           key="tab-mtr"
-          className="masar-tab-animate flex-1 max-w-7xl w-full mx-auto px-6 py-5 pb-16 flex flex-col gap-5"
+          className="flex-1 max-w-7xl w-full mx-auto px-6 py-5 pb-16 flex flex-col gap-5"
         >
           {reportNotice && (
-            <div className="rounded-xl bg-emerald-950/40 border border-emerald-500/40 px-4 py-3 flex items-center justify-between gap-4 shadow-md">
+            <div className="masar-page-enter rounded-xl bg-emerald-950/40 border border-emerald-500/40 px-4 py-3 flex items-center justify-between gap-4 shadow-md">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 text-xs font-bold shrink-0">
-                  ✓
-                </span>
+                <StatusLottie variant="success" size={24} />
                 <p className="text-xs text-emerald-200 font-semibold leading-relaxed break-all">
                   {reportNotice}
                 </p>
@@ -3200,9 +4510,14 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setReportModalOpen(true)}
-                  className="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/35 text-[11px] font-bold transition flex items-center gap-1"
+                  className="group masar-cta-sheen masar-action-btn active:scale-95 px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/35 text-[11px] font-bold transition flex items-center gap-1.5"
                 >
-                  <span>{lang === "ar" ? "؟" : "?"}</span>
+                  <span className="h-4 w-4 rounded-md bg-sky-500/20 text-sky-300 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[360deg] group-hover:scale-110">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 16v-4M12 8h.01" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
                   <span>
                     {lang === "ar" ? "شرح الأعمدة والبيانات" : "Explain Metrics"}
                   </span>
@@ -3506,10 +4821,10 @@ export default function App() {
       )}
 
       {/* TAB 2: DNS LOOKUP */}
-      {activeTab === "dns" && (
+      {renderedTab === "dns" && (
         <main
           key="tab-dns"
-          className="masar-tab-animate flex-1 max-w-7xl w-full mx-auto px-6 py-5 pb-16 flex flex-col gap-5"
+          className="flex-1 max-w-7xl w-full mx-auto px-6 py-5 pb-16 flex flex-col gap-5"
         >
           <div className="masar-stagger-1 relative overflow-hidden bg-slate-900/60 border border-slate-800/90 rounded-2xl p-6 space-y-4 shadow-xl">
             <SectionAmbientBackground variant="dns" />
@@ -3518,7 +4833,7 @@ export default function App() {
                 <h2 className="text-lg font-bold text-white">{t.dnsTitle}</h2>
                 <p className="text-xs text-slate-400 mt-0.5">{t.dnsDesc}</p>
               </div>
-              <form onSubmit={handleRunDNS} className="flex items-center gap-2">
+              <form onSubmit={handleRunDNS} className="flex items-center gap-2 shrink-0">
                 <input
                   dir="ltr"
                   type="text"
@@ -3530,12 +4845,46 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={dnsLoading}
-                  className="px-4 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-sm transition shadow-sm shadow-sky-500/20"
+                  className={`group masar-cta-sheen masar-action-btn shrink-0 whitespace-nowrap active:scale-95 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-tight transition-all duration-300 flex items-center gap-2 border ${
+                    dnsLoading
+                      ? "bg-sky-500/20 text-sky-200 border-sky-400/50 cursor-wait ring-2 ring-sky-500/25"
+                      : "bg-gradient-to-r from-sky-500 via-sky-400 to-cyan-400 hover:from-sky-400 hover:via-cyan-400 hover:to-emerald-400 text-slate-950 border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_16px_-4px_rgba(14,165,233,0.38)]"
+                  }`}
                 >
-                  {dnsLoading ? t.dnsResolving : t.dnsBtn}
+                  <span
+                    className={`h-4 w-4 shrink-0 rounded-md flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                      dnsLoading
+                        ? "bg-sky-400/20 text-sky-300"
+                        : "bg-slate-950/15 text-slate-950 group-hover:rotate-180 group-hover:scale-110"
+                    }`}
+                  >
+                    <svg
+                      className={`w-3 h-3 ${dnsLoading ? "animate-spin" : ""}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.3"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path
+                        d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+                  <span>{dnsLoading ? t.dnsResolving : t.dnsBtn}</span>
                 </button>
               </form>
             </div>
+
+            {dnsLoading && (
+              <div className="relative z-10 py-3">
+                <GoDataLoader
+                  label={t.dnsResolving}
+                  sublabel={dnsTarget}
+                />
+              </div>
+            )}
 
             {dnsReport ? (
               <div className="relative z-10 space-y-3 pt-2">
@@ -3657,10 +5006,10 @@ export default function App() {
         </main>
       )}
 
-      {activeTab === "ports" && (
+      {renderedTab === "ports" && (
         <main
           key="tab-ports"
-          className="masar-tab-animate flex-1 max-w-7xl w-full mx-auto px-6 py-5 pb-16 flex flex-col gap-5"
+          className="flex-1 max-w-7xl w-full mx-auto px-6 py-5 pb-16 flex flex-col gap-5"
         >
           <div className="masar-stagger-1 relative overflow-hidden bg-slate-900/60 border border-slate-800/90 rounded-2xl p-6 space-y-4 shadow-xl">
             <SectionAmbientBackground variant="ports" />
@@ -3671,7 +5020,7 @@ export default function App() {
               </div>
               <form
                 onSubmit={handleRunPortScan}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 shrink-0"
               >
                 <input
                   dir="ltr"
@@ -3684,12 +5033,44 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={portLoading}
-                  className="px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm transition shadow-sm shadow-emerald-500/20"
+                  className={`group masar-cta-sheen masar-action-btn shrink-0 whitespace-nowrap active:scale-95 px-3.5 py-1.5 rounded-xl text-xs font-bold tracking-tight transition-all duration-300 flex items-center gap-2 border ${
+                    portLoading
+                      ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/50 cursor-wait ring-2 ring-emerald-500/25"
+                      : "bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400 hover:from-emerald-400 hover:via-teal-400 hover:to-cyan-400 text-slate-950 border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_16px_-4px_rgba(16,185,129,0.38)]"
+                  }`}
                 >
-                  {portLoading ? t.portScanning : t.portBtn}
+                  <span
+                    className={`h-4 w-4 shrink-0 rounded-md flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                      portLoading
+                        ? "bg-emerald-400/20 text-emerald-300"
+                        : "bg-slate-950/15 text-slate-950 group-hover:rotate-180 group-hover:scale-110"
+                    }`}
+                  >
+                    <svg
+                      className={`w-3 h-3 ${portLoading ? "animate-spin" : ""}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.3"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M12 3v3M12 18v3M3 12h3M18 12h3" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                  <span>{portLoading ? t.portScanning : t.portBtn}</span>
                 </button>
               </form>
             </div>
+
+            {portLoading && (
+              <div className="relative z-10 py-3">
+                <GoDataLoader
+                  label={t.portScanning}
+                  sublabel={portHost}
+                />
+              </div>
+            )}
 
             {portReport ? (
               <div className="relative z-10 space-y-3 pt-2">
@@ -3804,17 +5185,15 @@ export default function App() {
         </main>
       )}
 
-      {activeTab === "speed" && (
+      {renderedTab === "speed" && (
         <main
           key="tab-speed"
-          className="masar-tab-animate flex-1 max-w-7xl w-full mx-auto px-6 py-5 pb-16 flex flex-col gap-5"
+          className="flex-1 max-w-7xl w-full mx-auto px-6 py-5 pb-16 flex flex-col gap-5"
         >
           {reportNotice && (
-            <div className="rounded-xl bg-emerald-950/60 border border-emerald-500/50 px-4 py-3 flex items-center justify-between gap-4 shadow-lg shadow-emerald-500/10">
+            <div className="masar-page-enter rounded-xl bg-emerald-950/60 border border-emerald-500/50 px-4 py-3 flex items-center justify-between gap-4 shadow-lg shadow-emerald-500/10">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 text-xs font-bold shrink-0">
-                  ✓
-                </span>
+                <StatusLottie variant="success" size={24} />
                 <p className="text-xs text-emerald-200 font-semibold leading-relaxed break-all">
                   {reportNotice}
                 </p>
@@ -3829,9 +5208,9 @@ export default function App() {
             </div>
           )}
 
-          <div className="masar-stagger-1 relative overflow-hidden bg-slate-900/60 border border-slate-800/90 rounded-2xl p-6 space-y-6 shadow-xl">
+          <div className="masar-stagger-1 relative overflow-hidden bg-slate-900/60 border border-slate-800/90 rounded-2xl p-6 space-y-5 shadow-xl">
             <SectionAmbientBackground variant="speed" />
-            {/* Header + Start/Cancel/Re-test Button */}
+            {/* Header + Single Clean Action Toolbar */}
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2.5">
@@ -3852,37 +5231,50 @@ export default function App() {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       {t.speedPhaseComplete}
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800/80 text-slate-300 border border-slate-700/80">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                      {(speedMode === "single" ? t.speedModeSingle : t.speedModeMulti)}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-400">{t.speedDesc}</p>
               </div>
 
-              {/* Action Toolbar */}
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Action Toolbar (Single Source of Truth — Never Duplicated Below) */}
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
                 {speedSnap.completed && !speedRunning && (
                   <>
                     <button
                       type="button"
                       onClick={handleExportSpeedPdf}
                       disabled={speedExporting}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 border ${
+                      className={`group masar-cta-sheen masar-action-btn shrink-0 whitespace-nowrap active:scale-95 px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all duration-300 border ${
                         speedPdfSaved
                           ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                          : "bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border-rose-500/30"
+                          : "bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border-rose-500/35"
                       }`}
                       title={t.speedExportPdf}
                     >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        {speedPdfSaved ? (
-                          <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
-                        ) : (
-                          <>
-                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M14 2v6h6" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M16 13H8m8 4H8m2-8H8" strokeLinecap="round" strokeLinejoin="round"/>
-                          </>
-                        )}
-                      </svg>
+                      <span
+                        className={`h-4 w-4 shrink-0 rounded-md flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                          speedPdfSaved
+                            ? "bg-emerald-500/25 text-emerald-300"
+                            : "bg-rose-500/20 text-rose-300 group-hover:scale-110 group-hover:-translate-y-0.5"
+                        }`}
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          {speedPdfSaved ? (
+                            <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
+                          ) : (
+                            <>
+                              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M14 2v6h6" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M16 13H8m8 4H8m2-8H8" strokeLinecap="round" strokeLinejoin="round"/>
+                            </>
+                          )}
+                        </svg>
+                      </span>
                       <span>
                         {speedPdfSaved
                           ? (lang === "ar" ? "تم الحفظ بنجاح! ✓" : "Saved Successfully! ✓")
@@ -3894,10 +5286,15 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleCopySpeedResults}
-                      className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition active:scale-95"
+                      className="group masar-cta-sheen masar-action-btn shrink-0 whitespace-nowrap active:scale-95 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-2 transition-all duration-300"
                       title={t.speedCopyResults}
                     >
-                      <span>📋</span>
+                      <span className="h-4 w-4 shrink-0 rounded-md bg-slate-900/70 text-sky-400 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 group-hover:rotate-12">
+                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
                       <span>{speedCopied ? t.speedCopied : t.speedCopyResults}</span>
                     </button>
                   </>
@@ -3905,28 +5302,39 @@ export default function App() {
 
                 <button
                   type="button"
-                  onClick={handleToggleSpeedBenchmark}
-                  className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center gap-2 shadow-lg shrink-0 ${
+                  onClick={() => handleToggleSpeedBenchmark()}
+                  className={`group masar-cta-sheen masar-action-btn shrink-0 whitespace-nowrap active:scale-95 px-3.5 py-1.5 rounded-xl font-bold text-xs tracking-tight transition-all duration-300 flex items-center gap-2 border ${
                     speedRunning
-                      ? "bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40"
-                      : "bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-sky-500/20"
+                      ? "bg-red-500/20 hover:bg-red-500/30 text-red-300 border-red-500/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_16px_-4px_rgba(239,68,68,0.28)]"
+                      : "bg-gradient-to-r from-sky-500 via-sky-400 to-cyan-400 hover:from-sky-400 hover:via-cyan-400 hover:to-emerald-400 text-slate-950 border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_16px_-4px_rgba(14,165,233,0.38)]"
                   }`}
                 >
                   {speedRunning ? (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-sm bg-red-400" />
+                      <span className="h-4 w-4 shrink-0 rounded-md bg-red-500/25 text-red-300 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-90 group-hover:scale-110">
+                        <span className="w-2 h-2 rounded-sm bg-red-400" />
+                      </span>
                       <span>{t.speedStopBtn}</span>
                     </>
                   ) : speedSnap.completed ? (
                     <>
-                      <span>⟲</span>
+                      <span className="h-4 w-4 shrink-0 rounded-md bg-slate-950/15 text-slate-950 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-180 group-hover:scale-110">
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                          <path d="M21 12a9 9 0 0 0-15.5-6.36L3 8" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M3 3v5h5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M3 12a9 9 0 0 0 15.5 6.36L21 16" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M16 16h5v5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
                       <span>{t.speedTestAgain}</span>
                     </>
                   ) : (
                     <>
-                      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 12 12">
-                        <path d="M2.5 1.5L10.5 6L2.5 10.5V1.5Z" />
-                      </svg>
+                      <span className="h-4 w-4 shrink-0 rounded-md bg-slate-950/15 text-slate-950 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[360deg] group-hover:scale-110">
+                        <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 12 12">
+                          <path d="M2.5 1.5L10.5 6L2.5 10.5V1.5Z" />
+                        </svg>
+                      </span>
                       <span>{t.speedStartBtn}</span>
                     </>
                   )}
@@ -3934,18 +5342,176 @@ export default function App() {
               </div>
             </div>
 
-            {/* SPEEDTEST BODY CANVAS */}
-            <div className="relative z-10">
-              {/* STATE 1: IDLE LAUNCHPAD (Speedtest.net GO Button) */}
+            {/* PINNED TOP 3-COLUMN LIVE SCOREBOARD STRIP (Fixed Geometry Across Idle / Running / Complete) */}
+            {(() => {
+              const showFinal = speedSnap.completed && !speedRunning;
+              const downDisplay = showFinal
+                ? (speedSnap.finalDownloadMbps || speedSnap.downloadMbps)
+                : speedSnap.downloadMbps;
+              const upDisplay = showFinal
+                ? (speedSnap.finalUploadMbps || speedSnap.uploadMbps)
+                : speedSnap.uploadMbps;
+              const isDownActive = speedRunning && speedSnap.phase === "download";
+              const isUpActive = speedRunning && speedSnap.phase === "upload";
+              const isPingActive = speedRunning && speedSnap.phase === "ping";
+              const downLoadedPing = speedSnap.downloadLatencyMs || speedSnap.loadedPingMs || 0;
+              const upLoadedPing = speedSnap.uploadLatencyMs || 0;
+
+              return (
+                <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Pinned Column 1: Download */}
+                  <div
+                    className={`masar-well rounded-xl px-4 py-3 border transition-colors duration-200 ${
+                      isDownActive
+                        ? "border-sky-400/70 bg-sky-500/[0.06] shadow-md shadow-sky-500/10"
+                        : showFinal
+                        ? "border-sky-500/40 bg-slate-950/75"
+                        : "border-slate-800/90 bg-slate-950/60"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span>{t.speedDown}</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 tabular-nums">
+                        {t.speedDownPing}: <bdi dir="ltr">{downLoadedPing > 0 ? `${downLoadedPing.toFixed(0)} ms` : "—"}</bdi>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                      <div className="text-2xl sm:text-3xl font-extrabold font-mono text-sky-400 tabular-nums tracking-tight" dir="ltr">
+                        {downDisplay > 0 ? downDisplay.toFixed(1) : "—"}
+                        <span className="text-xs font-medium text-slate-400 ml-1.5">Mbps</span>
+                      </div>
+                      <span className="text-[11px] font-mono text-slate-400 tabular-nums min-h-[16px]">
+                        {speedSnap.peakDownloadMbps > 0 ? (
+                          <>
+                            {t.speedPeak} <bdi dir="ltr">{speedSnap.peakDownloadMbps.toFixed(1)}</bdi>
+                          </>
+                        ) : "\u00A0"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pinned Column 2: Upload */}
+                  <div
+                    className={`masar-well rounded-xl px-4 py-3 border transition-colors duration-200 ${
+                      isUpActive
+                        ? "border-emerald-400/70 bg-emerald-500/[0.06] shadow-md shadow-emerald-500/10"
+                        : showFinal
+                        ? "border-emerald-500/40 bg-slate-950/75"
+                        : "border-slate-800/90 bg-slate-950/60"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 20V8m0 0l-4 4m4-4l4 4M4 4h16" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span>{t.speedUp}</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 tabular-nums">
+                        {t.speedUpPing}: <bdi dir="ltr">{upLoadedPing > 0 ? `${upLoadedPing.toFixed(0)} ms` : "—"}</bdi>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                      <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400 tabular-nums tracking-tight" dir="ltr">
+                        {upDisplay > 0 ? upDisplay.toFixed(1) : "—"}
+                        <span className="text-xs font-medium text-slate-400 ml-1.5">Mbps</span>
+                      </div>
+                      <span className="text-[11px] font-mono text-slate-400 tabular-nums min-h-[16px]">
+                        {speedSnap.peakUploadMbps > 0 ? (
+                          <>
+                            {t.speedPeak} <bdi dir="ltr">{speedSnap.peakUploadMbps.toFixed(1)}</bdi>
+                          </>
+                        ) : "\u00A0"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pinned Column 3: Idle Ping + Jitter + Packet Loss */}
+                  <div
+                    className={`masar-well rounded-xl px-4 py-3 border transition-colors duration-200 ${
+                      isPingActive
+                        ? "border-amber-400/70 bg-amber-500/[0.06] shadow-md shadow-amber-500/10"
+                        : showFinal
+                        ? "border-amber-500/40 bg-slate-950/75"
+                        : "border-slate-800/90 bg-slate-950/60"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span>{t.speedIdlePing || t.speedPing}</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 tabular-nums" dir="ltr">
+                        {speedSnap.bestPingMs > 0 ? `MIN ${speedSnap.bestPingMs.toFixed(1)}ms` : ""}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 grid grid-cols-3 gap-2 items-baseline">
+                      <div>
+                        <div className="text-xl sm:text-2xl font-extrabold font-mono text-amber-400 tabular-nums" dir="ltr">
+                          {speedSnap.pingMs > 0 ? speedSnap.pingMs.toFixed(1) : "—"}
+                          <span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate">{t.speedPing}</div>
+                      </div>
+                      <div>
+                        <div className="text-xl sm:text-2xl font-extrabold font-mono text-purple-400 tabular-nums" dir="ltr">
+                          {speedSnap.jitterMs > 0 ? speedSnap.jitterMs.toFixed(1) : "—"}
+                          <span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate">{t.speedJitter}</div>
+                      </div>
+                      <div>
+                        <div className="text-xl sm:text-2xl font-extrabold font-mono text-rose-400 tabular-nums" dir="ltr">
+                          {(speedSnap.completed || speedSnap.pingMs > 0) ? (speedSnap.packetLoss ?? 0).toFixed(1) : "—"}
+                          <span className="text-[10px] font-normal text-slate-400 ml-0.5">%</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate">{t.speedLoss}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* SPEEDTEST FIXED-HEIGHT CENTER ARENA */}
+            <div className="relative z-10 min-h-[420px] flex flex-col justify-center">
+              {/* STATE 1: IDLE LAUNCHPAD (Speedtest.net GO Button + Multi/Single Toggle) */}
               {!speedRunning && !speedSnap.completed && (
-                <div className="flex flex-col items-center justify-center py-12 px-4 gap-6 text-center">
-                  <div className="relative group cursor-pointer" onClick={handleToggleSpeedBenchmark}>
-                    <div className="masar-go-pulse absolute -inset-3 rounded-full bg-gradient-to-r from-sky-500/30 to-emerald-500/30 blur-xl opacity-75 group-hover:opacity-100 transition duration-500" />
+                <div className="flex flex-col items-center justify-center py-6 px-4 gap-5 text-center">
+                  <div className="relative group cursor-pointer" onClick={() => handleToggleSpeedBenchmark()}>
+                    <div className="masar-go-pulse absolute -inset-3 rounded-full bg-gradient-to-r from-sky-500/20 to-emerald-500/20 blur-xl opacity-70 group-hover:opacity-100 transition duration-500" />
                     <button
                       type="button"
-                      className="relative w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border-2 border-sky-400/50 group-hover:border-sky-300 shadow-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300 group-hover:scale-105 active:scale-95"
+                      style={{
+                        background:
+                          uiTheme === "light"
+                            ? "radial-gradient(circle at 35% 30%, #f8fafc 0%, #eaeff6 65%, #dde5f0 100%)"
+                            : "radial-gradient(circle at 35% 30%, #1b2845 0%, #131b2e 65%, #0d1322 100%)",
+                      }}
+                      className={`relative w-44 h-44 sm:w-48 sm:h-48 rounded-full border-2 ${
+                        uiTheme === "light"
+                          ? "border-sky-600/45 group-hover:border-sky-600 shadow-[0_14px_32px_-8px_rgba(2,132,199,0.22),inset_0_2px_4px_rgba(255,255,255,0.9)]"
+                          : "border-sky-400/50 group-hover:border-sky-300 shadow-[0_18px_40px_-8px_rgba(2,6,23,0.75),inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                      } flex flex-col items-center justify-center gap-1 transition-all duration-300 group-hover:scale-105 active:scale-95`}
                     >
-                      <span className={`text-4xl sm:text-5xl font-black bg-gradient-to-r from-sky-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent ${lang === "ar" ? "font-arabic" : "tracking-wider"}`}>
+                      <span
+                        className={`text-4xl sm:text-5xl bg-gradient-to-r ${
+                          uiTheme === "light"
+                            ? "from-sky-700 via-sky-600 to-emerald-600"
+                            : "from-sky-400 via-teal-300 to-emerald-400"
+                        } bg-clip-text text-transparent px-2 py-2 -my-2 inline-block ${
+                          lang === "ar"
+                            ? "font-bold leading-[1.45]"
+                            : "font-black tracking-wider leading-tight"
+                        }`}
+                      >
                         {lang === "ar" ? "ابدأ" : "GO"}
                       </span>
                       <span className={`font-semibold text-slate-300 ${lang === "ar" ? "text-xs font-arabic mt-0.5" : "text-[11px] uppercase tracking-widest mt-0.5"}`}>
@@ -3953,17 +5519,44 @@ export default function App() {
                       </span>
                     </button>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-slate-300 font-medium max-w-md">{t.speedServerHint}</p>
-                    <p className="text-[11px] text-slate-500">{t.speedPhaseIdle}</p>
+
+                  {/* Multi / Single Connection Mode Selector */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-950/80 border border-slate-800/90">
+                      <span className="text-[11px] font-semibold text-slate-400 px-2.5">{t.speedConnMode}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSpeedMode("multi")}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                          speedMode === "multi"
+                            ? "bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm"
+                            : "text-slate-400 hover:text-slate-200 border border-transparent"
+                        }`}
+                      >
+                        {t.speedModeMulti}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSpeedMode("single")}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                          speedMode === "single"
+                            ? "bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm"
+                            : "text-slate-400 hover:text-slate-200 border border-transparent"
+                        }`}
+                      >
+                        {t.speedModeSingle}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-400 max-w-md">
+                      {speedMode === "single" ? t.speedModeSingleHint : t.speedModeMultiHint}
+                    </p>
                   </div>
                 </div>
               )}
 
-              {/* STATE 2: ACTIVE STAGED TESTING WITH LIVE DIAL & PROGRESS */}
+              {/* STATE 2: ACTIVE STAGED TESTING WITH 60FPS FIXED-SCALE GAUGE */}
               {speedRunning && (
-                <div className="flex flex-col items-center justify-center py-6 px-4 gap-6 text-center">
-                  {/* Big Gauge */}
+                <div className="flex flex-col items-center justify-center py-2 px-4 gap-4 text-center">
                   <SpeedtestBigGauge
                     phase={speedSnap.phase}
                     downloadMbps={speedSnap.downloadMbps}
@@ -3971,240 +5564,294 @@ export default function App() {
                     pingMs={speedSnap.pingMs}
                     peakDownload={speedSnap.peakDownloadMbps}
                     peakUpload={speedSnap.peakUploadMbps}
+                    activeStreams={speedSnap.activeStreams}
+                    connectionMode={speedSnap.connectionMode || speedMode}
+                    history={speedSnap.phase === "upload" ? speedSnap.uploadHistory : speedSnap.downloadHistory}
                     isLight={uiTheme === "light"}
+                    lang={lang}
                   />
 
-                  {/* Progress Bar */}
-                  <div className="w-full max-w-md space-y-1.5">
-                    <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                      <span>{t.speedProgress}</span>
-                      <span className="text-sky-400 font-bold">{speedSnap.progress || 0}%</span>
+                  {/* Compact Progress & Telemetry Strip */}
+                  <div className="w-full max-w-lg space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-slate-400 font-mono" dir="ltr">
+                      <span className="flex items-center gap-2">
+                        <span>{t.speedProgress}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/80 border border-slate-700/80 text-slate-300">
+                          {(speedSnap.connectionMode || speedMode) === "single"
+                            ? t.speedStreamSingleUnit
+                            : `${speedSnap.activeStreams || 4} ${t.speedStreamsUnit}`}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-3">
+                        <span className="text-slate-400">{(speedSnap.totalMB || 0).toFixed(1)} MB</span>
+                        <span className="text-sky-400 font-bold tabular-nums">{speedSnap.progress || 0}%</span>
+                      </span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden p-0.5 border border-slate-700/50">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-sky-400 via-teal-400 to-emerald-400 transition-all duration-300"
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          speedSnap.phase === "upload"
+                            ? "bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300"
+                            : speedSnap.phase === "ping"
+                            ? "bg-gradient-to-r from-amber-500 to-amber-300"
+                            : "bg-gradient-to-r from-sky-500 via-cyan-400 to-teal-300"
+                        }`}
                         style={{ width: `${Math.max(4, Math.min(100, speedSnap.progress || 0))}%` }}
                       />
                     </div>
                   </div>
-
-                  {/* Live Metrics Grid while running */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-2xl">
-                    <div className={`masar-well p-3 rounded-xl border text-center transition ${speedSnap.phase === "download" ? "border-sky-500/60 shadow-lg shadow-sky-500/10" : "border-slate-800"}`}>
-                      <div className="text-[10px] uppercase font-bold text-slate-400">{t.speedDown}</div>
-                      <div className="text-xl font-mono font-bold text-sky-400" dir="ltr">
-                        {speedSnap.downloadMbps > 0 ? speedSnap.downloadMbps.toFixed(1) : "—"}
-                        <span className="text-[10px] text-slate-400 ml-1">Mbps</span>
-                      </div>
-                    </div>
-                    <div className={`masar-well p-3 rounded-xl border text-center transition ${speedSnap.phase === "upload" ? "border-emerald-500/60 shadow-lg shadow-emerald-500/10" : "border-slate-800"}`}>
-                      <div className="text-[10px] uppercase font-bold text-slate-400">{t.speedUp}</div>
-                      <div className="text-xl font-mono font-bold text-emerald-400" dir="ltr">
-                        {speedSnap.uploadMbps > 0 ? speedSnap.uploadMbps.toFixed(1) : "—"}
-                        <span className="text-[10px] text-slate-400 ml-1">Mbps</span>
-                      </div>
-                    </div>
-                    <div className={`masar-well p-3 rounded-xl border text-center transition ${speedSnap.phase === "ping" ? "border-amber-500/60 shadow-lg shadow-amber-500/10" : "border-slate-800"}`}>
-                      <div className="text-[10px] uppercase font-bold text-slate-400">{t.speedPing}</div>
-                      <div className="text-xl font-mono font-bold text-amber-400" dir="ltr">
-                        {speedSnap.pingMs > 0 ? speedSnap.pingMs.toFixed(1) : "—"}
-                        <span className="text-[10px] text-slate-400 ml-1">ms</span>
-                      </div>
-                    </div>
-                    <div className="masar-well p-3 rounded-xl border border-slate-800 text-center">
-                      <div className="text-[10px] uppercase font-bold text-slate-400">{t.speedJitter}</div>
-                      <div className="text-xl font-mono font-bold text-purple-400" dir="ltr">
-                        {speedSnap.jitterMs > 0 ? speedSnap.jitterMs.toFixed(1) : "—"}
-                        <span className="text-[10px] text-slate-400 ml-1">ms</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
-              {/* STATE 3: COMPLETED RESULTS SCORECARD */}
-              {speedSnap.completed && !speedRunning && (
-                <div className="masar-score-reveal space-y-6">
-                  {/* Hero Metric Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Download Card */}
-                    <div className="masar-lift-card masar-well bg-slate-950/85 border border-sky-500/40 rounded-2xl p-5 flex flex-col justify-between gap-3 shadow-lg shadow-sky-500/10">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                          <svg className="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          {t.speedDown}
-                        </span>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                          SCORE
-                        </span>
-                      </div>
-                      <div>
-                        <div className="text-5xl font-extrabold text-sky-400 font-mono tracking-tight" dir="ltr">
-                          {(speedSnap.finalDownloadMbps || speedSnap.downloadMbps).toFixed(1)}
-                          <span className="text-sm font-medium text-slate-400 ml-2">Mbps</span>
-                        </div>
-                        <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
-                          <span>{t.speedPeak}:</span>
-                          <bdi dir="ltr" className="font-mono text-sky-300 font-bold">
-                            {(speedSnap.peakDownloadMbps || speedSnap.downloadMbps).toFixed(1)} Mbps
-                          </bdi>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-slate-800/60 flex items-center justify-center">
-                        <LatencySparkline history={speedSnap.downloadHistory} width={240} height={34} colorOverride="#38bdf8" />
-                      </div>
-                    </div>
+              {/* STATE 3: COMPLETED RESULTS ANALYTICS INSIDE FIXED-HEIGHT ARENA */}
+              {speedSnap.completed && !speedRunning && (() => {
+                const finalDown = speedSnap.finalDownloadMbps || speedSnap.downloadMbps || 0;
+                const finalUp = speedSnap.finalUploadMbps || speedSnap.uploadMbps || 0;
+                const idlePing = speedSnap.pingMs || 0;
+                const downLoadPing = speedSnap.downloadLatencyMs || speedSnap.loadedPingMs || idlePing;
+                const upLoadPing = speedSnap.uploadLatencyMs || speedSnap.loadedPingMs || idlePing;
+                const bloatDelta = Math.max(0, Math.max(downLoadPing, upLoadPing) - idlePing);
+                const bloatBadge =
+                  bloatDelta <= 25
+                    ? { label: t.speedLatencyLow, cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/35" }
+                    : bloatDelta <= 75
+                    ? { label: t.speedLatencyMed, cls: "bg-amber-500/15 text-amber-300 border-amber-500/35" }
+                    : { label: t.speedLatencyHigh, cls: "bg-rose-500/15 text-rose-300 border-rose-500/35" };
+                const loss = speedSnap.packetLoss || 0;
+                const grade =
+                  speedSnap.qualityGrade ||
+                  (finalDown >= 100 && finalUp >= 25 && idlePing > 0 && idlePing <= 40 && loss < 1
+                    ? "A+"
+                    : finalDown >= 35 && finalUp >= 8 && idlePing > 0 && idlePing <= 85 && loss < 2
+                    ? "A"
+                    : finalDown >= 12 && loss < 5
+                    ? "B"
+                    : "C");
+                const gradeText =
+                  grade === "A+"
+                    ? t.speedGradeExcellent
+                    : grade === "A"
+                    ? t.speedGradeGood
+                    : grade === "B"
+                    ? t.speedGradeFair
+                    : t.speedGradePoor;
+                const gradeBadgeColor =
+                  grade === "A+"
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                    : grade === "A"
+                    ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                    : grade === "B"
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    : "bg-rose-500/20 text-rose-300 border-rose-500/40";
 
-                    {/* Upload Card */}
-                    <div className="masar-lift-card masar-well bg-slate-950/85 border border-emerald-500/40 rounded-2xl p-5 flex flex-col justify-between gap-3 shadow-lg shadow-emerald-500/10">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                          <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M12 20V8m0 0l-4 4m4-4l4 4M4 4h16" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          {t.speedUp}
-                        </span>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                          SCORE
-                        </span>
-                      </div>
-                      <div>
-                        <div className="text-5xl font-extrabold text-emerald-400 font-mono tracking-tight" dir="ltr">
-                          {(speedSnap.finalUploadMbps || speedSnap.uploadMbps).toFixed(1)}
-                          <span className="text-sm font-medium text-slate-400 ml-2">Mbps</span>
-                        </div>
-                        <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
-                          <span>{t.speedPeak}:</span>
-                          <bdi dir="ltr" className="font-mono text-emerald-300 font-bold">
-                            {(speedSnap.peakUploadMbps || speedSnap.uploadMbps).toFixed(1)} Mbps
-                          </bdi>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-slate-800/60 flex items-center justify-center">
-                        <LatencySparkline history={speedSnap.uploadHistory} width={240} height={34} colorOverride="#10b981" />
-                      </div>
-                    </div>
-
-                    {/* Ping & Jitter Card */}
-                    <div className="masar-lift-card masar-well bg-slate-950/85 border border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between gap-3 shadow-lg shadow-amber-500/10">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                          <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          {t.speedPing} & {t.speedJitter}
-                        </span>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                          {speedSnap.bestPingMs > 0 ? `${speedSnap.bestPingMs.toFixed(1)}ms BEST` : "STABLE"}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 my-1">
-                        <div>
-                          <div className="text-xl sm:text-2xl font-extrabold text-amber-400 font-mono" dir="ltr">
-                            {speedSnap.pingMs.toFixed(1)}
-                            <span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5 truncate">{t.speedIdlePing || t.speedPing}</div>
-                        </div>
-                        <div>
-                          <div className="text-xl sm:text-2xl font-extrabold text-orange-400 font-mono" dir="ltr">
-                            {(speedSnap.loadedPingMs || (speedSnap.pingMs > 0 ? speedSnap.pingMs + 3.8 : 0)).toFixed(1)}
-                            <span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5 truncate">{t.speedLoadedPing}</div>
-                        </div>
-                        <div>
-                          <div className="text-xl sm:text-2xl font-extrabold text-purple-400 font-mono" dir="ltr">
-                            {speedSnap.jitterMs.toFixed(1)}
-                            <span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5 truncate">{t.speedJitter}</div>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
-                        <span>{t.speedTotalData}: <bdi dir="ltr" className="font-mono font-bold text-slate-200">{speedSnap.totalMB.toFixed(1)} MB</bdi></span>
-                        <span className="font-mono text-[11px]">{speedSnap.updatedAt}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quality Rating Banner */}
-                  {(() => {
-                    const d = speedSnap.finalDownloadMbps || speedSnap.downloadMbps || 0;
-                    const p = speedSnap.pingMs || 0;
-                    const grade = d >= 100 && p <= 35 ? "A+" : d >= 30 ? "A" : "B";
-                    const gradeText = grade === "A+" ? t.speedGradeExcellent : grade === "A" ? t.speedGradeGood : t.speedGradeFair;
-                    const gradeBadgeColor = grade === "A+"
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                      : grade === "A"
-                      ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
-                      : "bg-amber-500/20 text-amber-300 border-amber-500/40";
-                    return (
-                      <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-12 h-12 rounded-xl flex items-center justify-center font-extrabold text-xl border ${gradeBadgeColor}`}>
-                            {grade}
+                return (
+                  <div className="masar-score-reveal space-y-4">
+                    {/* 2-Card Analytical Breakdown */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Card A: Throughput Stability Curves */}
+                      <div className="masar-well bg-slate-950/80 border border-slate-800/90 rounded-2xl p-4 space-y-3.5">
+                        <div className="flex items-center justify-between border-b border-slate-800/70 pb-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                            {t.speedDown} &amp; {t.speedUp}
                           </span>
-                          <div className="space-y-0.5">
-                            <div className="text-xs font-bold text-slate-200 uppercase tracking-wider">{t.speedGradeTitle}</div>
-                            <div className="text-xs text-slate-300">{gradeText}</div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                            {(speedSnap.connectionMode || speedMode) === "single" ? t.speedModeSingle : t.speedModeMulti}
+                          </span>
+                        </div>
+
+                        {/* Download Stability Row */}
+                        <div className="flex items-center justify-between gap-3 bg-slate-900/60 border border-sky-500/25 rounded-xl px-3 py-2.5">
+                          <div className="min-w-[110px]">
+                            <div className="text-[11px] font-bold text-sky-400">{t.speedDown}</div>
+                            <div className="text-lg font-extrabold font-mono text-white tabular-nums" dir="ltr">
+                              {finalDown.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">Mbps</span>
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-400 tabular-nums" dir="ltr">
+                              {t.speedPeak}: {(speedSnap.peakDownloadMbps || finalDown).toFixed(1)}
+                            </div>
+                          </div>
+                          <div className="flex-1 flex justify-end overflow-hidden">
+                            <LatencySparkline history={speedSnap.downloadHistory} width={220} height={38} colorOverride="#38bdf8" zeroBaseline />
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+
+                        {/* Upload Stability Row */}
+                        <div className="flex items-center justify-between gap-3 bg-slate-900/60 border border-emerald-500/25 rounded-xl px-3 py-2.5">
+                          <div className="min-w-[110px]">
+                            <div className="text-[11px] font-bold text-emerald-400">{t.speedUp}</div>
+                            <div className="text-lg font-extrabold font-mono text-white tabular-nums" dir="ltr">
+                              {finalUp.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">Mbps</span>
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-400 tabular-nums" dir="ltr">
+                              {t.speedPeak}: {(speedSnap.peakUploadMbps || finalUp).toFixed(1)}
+                            </div>
+                          </div>
+                          <div className="flex-1 flex justify-end overflow-hidden">
+                            <LatencySparkline history={speedSnap.uploadHistory} width={220} height={38} colorOverride="#10b981" zeroBaseline />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card B: Loaded Latency & Bufferbloat Profile */}
+                      <div className="masar-well bg-slate-950/80 border border-slate-800/90 rounded-2xl p-4 flex flex-col justify-between gap-3">
+                        <div className="flex items-center justify-between border-b border-slate-800/70 pb-2 gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                            {t.speedBufferbloat}
+                          </span>
+                          <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${bloatBadge.cls}`}>
+                            {bloatBadge.label}
+                          </span>
+                        </div>
+
+                        {/* Idle / Download / Upload Ping Breakdown */}
+                        <div className="grid grid-cols-3 gap-2.5">
+                          <div className="rounded-xl bg-slate-900/60 border border-slate-800/80 p-2.5 text-center">
+                            <div className="text-[10px] text-slate-400 truncate">{t.speedIdlePing}</div>
+                            <div className="text-lg font-extrabold font-mono text-amber-400 mt-0.5 tabular-nums" dir="ltr">
+                              {idlePing.toFixed(1)}<span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-500 mt-0.5 tabular-nums" dir="ltr">
+                              {speedSnap.bestPingMs > 0
+                                ? `${speedSnap.bestPingMs.toFixed(0)}–${(speedSnap.maxPingMs || speedSnap.bestPingMs).toFixed(0)}ms`
+                                : "—"}
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-slate-900/60 border border-slate-800/80 p-2.5 text-center">
+                            <div className="text-[10px] text-slate-400 truncate">{t.speedDownPing}</div>
+                            <div className="text-lg font-extrabold font-mono text-sky-400 mt-0.5 tabular-nums" dir="ltr">
+                              {downLoadPing.toFixed(1)}<span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-500 mt-0.5 tabular-nums" dir="ltr">
+                              {downLoadPing > idlePing ? `+${(downLoadPing - idlePing).toFixed(0)}ms` : "0ms"}
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-slate-900/60 border border-slate-800/80 p-2.5 text-center">
+                            <div className="text-[10px] text-slate-400 truncate">{t.speedUpPing}</div>
+                            <div className="text-lg font-extrabold font-mono text-emerald-400 mt-0.5 tabular-nums" dir="ltr">
+                              {upLoadPing.toFixed(1)}<span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-500 mt-0.5 tabular-nums" dir="ltr">
+                              {upLoadPing > idlePing ? `+${(upLoadPing - idlePing).toFixed(0)}ms` : "0ms"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Secondary Telemetry Strip */}
+                        <div className="pt-2 border-t border-slate-800/70 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 font-mono">
+                          <span>{t.speedTotalData}: <bdi dir="ltr" className="font-bold text-slate-200">{(speedSnap.totalMB || 0).toFixed(1)} MB</bdi></span>
+                          <span>{t.speedJitter}: <bdi dir="ltr" className="font-bold text-purple-300">{(speedSnap.jitterMs || 0).toFixed(1)} ms</bdi></span>
+                          <span>{t.speedLoss}: <bdi dir="ltr" className="font-bold text-rose-300">{(speedSnap.packetLoss ?? 0).toFixed(1)}%</bdi></span>
+                          <span className="text-slate-500">{speedSnap.updatedAt}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Compact Verdict Banner + Quick Mode Switcher */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-lg border shrink-0 ${gradeBadgeColor}`}>
+                          {grade}
+                        </span>
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-bold text-slate-200 uppercase tracking-wider">{t.speedGradeTitle}</div>
+                          <div className="text-xs text-slate-300">{gradeText}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        <span className="text-[11px] font-semibold text-slate-400">{t.speedConnMode}</span>
+                        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800">
                           <button
                             type="button"
-                            onClick={handleExportSpeedPdf}
-                            disabled={speedExporting}
-                            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-md border ${
-                              speedPdfSaved
-                                ? "bg-emerald-500/25 text-emerald-200 border-emerald-500/50 shadow-emerald-500/20"
-                                : "bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border-rose-500/40 shadow-rose-500/10"
+                            onClick={() => {
+                              setSpeedMode("multi");
+                              if ((speedSnap.connectionMode || speedMode) !== "multi") {
+                                handleToggleSpeedBenchmark("multi");
+                              }
+                            }}
+                            title={lang === "ar" ? "فحص متعدد القنوات" : "Run Multi-Connection Test"}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                              (speedSnap.connectionMode || speedMode) === "multi"
+                                ? "bg-sky-500/20 text-sky-300 border border-sky-500/40"
+                                : "text-slate-400 hover:text-slate-200 border border-transparent"
                             }`}
-                            title={t.speedExportPdf}
                           >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              {speedPdfSaved ? (
-                                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
-                              ) : (
-                                <>
-                                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round"/>
-                                  <path d="M14 2v6h6" strokeLinecap="round" strokeLinejoin="round"/>
-                                  <path d="M16 13H8m8 4H8m2-8H8" strokeLinecap="round" strokeLinejoin="round"/>
-                                </>
-                              )}
-                            </svg>
-                            <span>
-                              {speedPdfSaved
-                                ? (lang === "ar" ? "تم الحفظ بنجاح! ✓" : "Saved Successfully! ✓")
-                                : speedExporting
-                                ? t.speedExportingPdf
-                                : t.speedExportPdf}
-                            </span>
+                            {t.speedModeMulti}
                           </button>
                           <button
                             type="button"
-                            onClick={handleCopySpeedResults}
-                            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition active:scale-95"
+                            onClick={() => {
+                              setSpeedMode("single");
+                              if ((speedSnap.connectionMode || speedMode) !== "single") {
+                                handleToggleSpeedBenchmark("single");
+                              }
+                            }}
+                            title={lang === "ar" ? "فحص بقناة واحدة" : "Run Single-Connection Test"}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                              (speedSnap.connectionMode || speedMode) === "single"
+                                ? "bg-sky-500/20 text-sky-300 border border-sky-500/40"
+                                : "text-slate-400 hover:text-slate-200 border border-transparent"
+                            }`}
                           >
-                            <span>📋</span>
-                            <span>{speedCopied ? t.speedCopied : t.speedCopyResults}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleToggleSpeedBenchmark}
-                            className="px-5 py-2 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-lg shadow-sky-500/25 flex items-center gap-1.5 transition active:scale-95"
-                          >
-                            <span>⟲</span>
-                            <span>{t.speedTestAgain}</span>
+                            {t.speedModeSingle}
                           </button>
                         </div>
                       </div>
-                    );
-                  })()}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* PINNED CONNECTION & TEST SERVER STRIP (Constant Across Idle / Running / Complete) */}
+            <div className="relative z-10 masar-well rounded-xl bg-slate-950/70 border border-slate-800/85 px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/25 flex items-center justify-center text-sky-400 shrink-0">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M3.6 9h16.8M3.6 15h16.8M12 3a14 14 0 000 18M12 3a14 14 0 010 18" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t.speedNetworkCard}</div>
+                  <div className="font-semibold text-slate-200 truncate">
+                    {speedSnap.clientIsp || speedMeta?.clientIsp || (lang === "ar" ? "جاري التعرف على المزود..." : "Detecting ISP...")}
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-400 truncate text-start">
+                    <bdi dir="ltr">
+                      {speedSnap.clientIp || speedMeta?.clientIp || "—"}
+                      {(speedSnap.clientLocation || speedMeta?.clientLocation)
+                        ? ` • ${speedSnap.clientLocation || speedMeta?.clientLocation}`
+                        : ""}
+                    </bdi>
+                  </div>
                 </div>
-              )}
+              </div>
+
+              <div className="flex items-center gap-3 min-w-0 sm:border-s sm:border-slate-800/80 sm:ps-4">
+                <span className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 shrink-0">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="6" rx="1.5" />
+                    <rect x="3" y="14" width="18" height="6" rx="1.5" />
+                    <circle cx="7" cy="7" r="1" fill="currentColor" />
+                    <circle cx="7" cy="17" r="1" fill="currentColor" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t.speedServerCard}</span>
+                    <span className="text-[10px] font-mono text-emerald-400">
+                      {(speedSnap.connectionMode || speedMode) === "single" ? t.speedModeSingle : t.speedModeMulti}
+                    </span>
+                  </div>
+                  <div className="font-semibold text-slate-200 truncate">
+                    {speedSnap.serverName || speedMeta?.serverName || "Cloudflare Anycast Edge"}
+                  </div>
+                  <div className="text-[11px] text-slate-400 truncate">
+                    {speedSnap.serverLocation || speedMeta?.serverLocation || t.speedServerHint}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Live Global Anycast Edge Latency Matrix */}
@@ -4300,26 +5947,35 @@ export default function App() {
           </div>
         </main>
       )}
+          </>
+        )}
+      />
+      </div>
+      </div>
 
       {/* Bottom-Right Corner Dock: Language Switcher + Settings Icon */}
       <div
         dir="ltr"
-        className="fixed bottom-3 right-6 z-40 flex items-center gap-3"
+        className="fixed bottom-3 right-6 z-40 transform-gpu flex items-center gap-3"
       >
         {/* Animated Morphing Language Capsule */}
-        <div className="h-8 min-w-[32px] flex items-center bg-slate-900/95 border border-slate-800/90 hover:border-sky-500/40 rounded-xl px-0.5 shadow-lg transition-all duration-300 ease-out">
+        <div
+          className={`h-8 min-w-[32px] flex items-center bg-slate-900/95 border border-slate-800/90 hover:border-sky-500/40 rounded-xl overflow-hidden shadow-lg transition-all duration-300 ease-out ${
+            langMenuOpen ? "px-1" : "p-0"
+          }`}
+        >
           <button
             type="button"
             onClick={() => setLangMenuOpen((prev) => !prev)}
-            className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all duration-300 ${
+            className={`masar-icon-btn shrink-0 flex items-center justify-center transition-all duration-300 ${
               langMenuOpen
-                ? "bg-sky-500/20 text-sky-300"
-                : "text-slate-400 hover:text-sky-400 hover:bg-slate-800"
+                ? "h-6 w-6 rounded-lg bg-sky-500/20 text-sky-300"
+                : "h-full w-8 text-slate-400 hover:text-sky-400 hover:bg-slate-800"
             }`}
             title={lang === "ar" ? "تغيير اللغة" : "Switch Language"}
           >
             <svg
-              className={`w-4 h-4 transition-transform duration-300 ease-out ${
+              className={`masar-icon-target w-4 h-4 ${
                 langMenuOpen ? "rotate-180 scale-110 text-sky-400" : ""
               }`}
               viewBox="0 0 24 24"
@@ -4369,11 +6025,11 @@ export default function App() {
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className="group w-8 h-8 rounded-xl bg-slate-900/95 hover:bg-slate-800 border border-slate-800/90 hover:border-sky-500/40 shadow-lg flex items-center justify-center text-slate-400 hover:text-sky-400 transition-all duration-300"
+          className="masar-icon-btn group w-8 h-8 rounded-xl bg-slate-900/95 hover:bg-slate-800 border border-slate-800/90 hover:border-sky-500/40 shadow-lg flex items-center justify-center text-slate-400 hover:text-sky-400 transition-all duration-300"
           title={t.settingsBtn}
         >
           <svg
-            className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500"
+            className="masar-icon-target w-4 h-4 group-hover:rotate-90 transition-transform duration-500"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -4388,22 +6044,19 @@ export default function App() {
       </div>
 
       {/* SETTINGS, CREDITS, THEME SWITCHER & COMPREHENSIVE GUIDE MODAL */}
-      {settingsOpen && (
-        <div
-          className={`masar-backdrop-animate fixed inset-x-0 bottom-0 top-10 z-40 flex items-center justify-center p-4 sm:p-6 ${
-            uiTheme === "light"
-              ? "bg-slate-300/45 backdrop-blur-md"
-              : "bg-black/75 backdrop-blur-sm"
-          }`}
-          onClick={() => setSettingsOpen(false)}
-        >
-          <div
-            className="masar-modal-animate relative bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <AnimatedModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        backdropClassName={`fixed inset-x-0 bottom-0 top-10 z-40 flex items-center justify-center p-3 sm:p-6 ${
+          uiTheme === "light"
+            ? "bg-slate-300/45 backdrop-blur-xl"
+            : "bg-black/70 backdrop-blur-xl"
+        }`}
+        panelClassName="relative bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full max-h-full flex flex-col shadow-2xl overflow-hidden"
+      >
             <SectionAmbientBackground variant="mtr" />
             {/* Modal Header */}
-            <div className="relative z-10 px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
+            <div className="relative z-10 shrink-0 px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
               <div className="flex items-center gap-3">
                 <MasarLogo size={34} className="shrink-0 drop-shadow-sm" />
                 <div>
@@ -4424,7 +6077,7 @@ export default function App() {
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="relative z-10 p-6 overflow-y-auto space-y-7">
+            <div className="relative z-10 flex-1 min-h-0 p-6 overflow-y-auto overscroll-contain space-y-7">
               {/* 1. CREDITS & APP IDENTITY (@mhmdrfx + Crafted Phrase + App Logo) */}
               <section className="space-y-3">
                 <h3 className="text-sm font-extrabold text-sky-400 uppercase tracking-wider">
@@ -4507,22 +6160,22 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => selectTheme("dark")}
-                    className={`masar-lift-card text-start rounded-2xl p-4 border-2 transition-all flex flex-col justify-between gap-3 ${
+                    className={`masar-lift-card text-start rounded-2xl p-4 border transition-all flex flex-col justify-between gap-3 ${
                       uiTheme === "dark"
-                        ? "border-sky-500 bg-sky-950/20 shadow-lg shadow-sky-500/10"
-                        : "border-slate-800 bg-slate-950/60 hover:border-slate-700"
+                        ? "border-sky-500/80 ring-1 ring-sky-500/40 bg-sky-950/20 shadow-lg shadow-sky-500/10"
+                        : "border-slate-800/80 bg-slate-950/60 hover:border-slate-700"
                     }`}
                   >
                     <div className="w-full space-y-1">
-                      <div className="w-full flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="w-full flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
                           <ThemeRadioIndicator active={uiTheme === "dark"} />
-                          <span className="text-sm font-bold text-white">
+                          <span className="text-sm font-bold text-white truncate">
                             {t.darkThemeTitle}
                           </span>
                         </div>
                         {uiTheme === "dark" && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500 text-slate-950">
+                          <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500 text-slate-950">
                             ✓ {t.activeThemeBadge}
                           </span>
                         )}
@@ -4538,22 +6191,22 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => selectTheme("light")}
-                    className={`masar-lift-card text-start rounded-2xl p-4 border-2 transition-all flex flex-col justify-between gap-3 ${
+                    className={`masar-lift-card text-start rounded-2xl p-4 border transition-all flex flex-col justify-between gap-3 ${
                       uiTheme === "light"
-                        ? "border-sky-500 bg-sky-950/20 shadow-lg shadow-sky-500/10"
-                        : "border-slate-800 bg-slate-950/60 hover:border-slate-700"
+                        ? "border-sky-500/80 ring-1 ring-sky-500/40 bg-sky-950/20 shadow-lg shadow-sky-500/10"
+                        : "border-slate-800/80 bg-slate-950/60 hover:border-slate-700"
                     }`}
                   >
                     <div className="w-full space-y-1">
-                      <div className="w-full flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="w-full flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
                           <ThemeRadioIndicator active={uiTheme === "light"} />
-                          <span className="text-sm font-bold text-white">
+                          <span className="text-sm font-bold text-white truncate">
                             {t.lightThemeTitle}
                           </span>
                         </div>
                         {uiTheme === "light" && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500 text-slate-950">
+                          <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500 text-slate-950">
                             ✓ {t.activeThemeBadge}
                           </span>
                         )}
@@ -4703,9 +6356,7 @@ export default function App() {
                 </div>
               </section>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
 
       {/* EXTRACTED DATA BREAKDOWN, REPORT STUDIO & 12-METRIC REFERENCE MODAL */}
       <ReportStudioModal

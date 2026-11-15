@@ -586,6 +586,17 @@ func BuildDetailedJSONReport(snap mtr.TraceSnapshot, lang string) ([]byte, error
 	return json.MarshalIndent(payload, "", "  ")
 }
 
+func sanitizeCSVCell(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
+}
+
 // BuildDetailedCSVReport formats the trace snapshot and metric reference as UTF-8 CSV.
 func BuildDetailedCSVReport(snap mtr.TraceSnapshot, lang string) string {
 	isAr := strings.HasPrefix(strings.ToLower(strings.TrimSpace(lang)), "ar")
@@ -606,7 +617,7 @@ func BuildDetailedCSVReport(snap mtr.TraceSnapshot, lang string) string {
 
 	if isAr {
 		_ = w.Write([]string{fmt.Sprintf("تقرير مسار (Masar %s) الرسمي لتشخيص الشبكة", verTag), nowStr})
-		_ = w.Write([]string{"الهدف المفحوص", snap.Target, "عنوان IP المحلل", snap.ResolvedIP})
+		_ = w.Write([]string{"الهدف المفحوص", sanitizeCSVCell(snap.Target), "عنوان IP المحلل", sanitizeCSVCell(snap.ResolvedIP)})
 		_ = w.Write([]string{"مؤشر الجودة الكلي", fmt.Sprintf("%d%% (%s)", snap.Health.Score, sevLabel), "الخلاصة", statusTitle})
 		_ = w.Write([]string{"التفصيل التشخيصي", detailText})
 		_ = w.Write([]string{})
@@ -618,7 +629,7 @@ func BuildDetailedCSVReport(snap mtr.TraceSnapshot, lang string) string {
 		})
 	} else {
 		_ = w.Write([]string{fmt.Sprintf("Masar %s — Official Network Diagnostic CSV Report", verTag), nowStr})
-		_ = w.Write([]string{"Target Host", snap.Target, "Resolved IP", snap.ResolvedIP})
+		_ = w.Write([]string{"Target Host", sanitizeCSVCell(snap.Target), "Resolved IP", sanitizeCSVCell(snap.ResolvedIP)})
 		_ = w.Write([]string{"Health Score", fmt.Sprintf("%d%% (%s)", snap.Health.Score, sevLabel), "Verdict", statusTitle})
 		_ = w.Write([]string{"Diagnostic Detail", detailText})
 		_ = w.Write([]string{})
@@ -641,10 +652,10 @@ func BuildDetailedCSVReport(snap mtr.TraceSnapshot, lang string) string {
 		_ = w.Write([]string{
 			fmt.Sprintf("%d", h.Hop),
 			ev.roleLabel,
-			h.IP,
-			h.Hostname,
-			h.Location,
-			h.ASN,
+			sanitizeCSVCell(h.IP),
+			sanitizeCSVCell(h.Hostname),
+			sanitizeCSVCell(h.Location),
+			sanitizeCSVCell(h.ASN),
 			fmt.Sprintf("%.1f", h.LossPercent),
 			fmt.Sprintf("%d", h.Sent),
 			fmt.Sprintf("%d", h.Received),

@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { AnimatedModal } from "./motion/MotionPrimitives.jsx";
+import StatusLottie from "./motion/StatusLottie.jsx";
 
 function formatArabicCount(n, singular, dual, pluralFew, pluralMany) {
   const count = Number(n) || 0;
@@ -435,7 +437,7 @@ export function ExportToolbarCapsule({
         onClick={onCopySummary}
         disabled={!hasData}
         title={hasData ? labels.copyTip : labels.needTraceTip}
-        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+        className={`group masar-cta-sheen masar-action-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 border ${
           !hasData
             ? "text-slate-400 opacity-60 border-transparent cursor-not-allowed"
             : copyFeedback
@@ -443,16 +445,18 @@ export function ExportToolbarCapsule({
             : "bg-slate-900/90 text-slate-200 border-slate-800/90 hover:bg-sky-500/15 hover:text-sky-300 hover:border-sky-500/35"
         }`}
       >
-        {copyFeedback ? (
-          <svg className="w-3.5 h-3.5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        ) : (
-          <svg className="w-3.5 h-3.5 shrink-0 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-        )}
+        <span className="inline-flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-115 group-hover:rotate-12">
+          {copyFeedback ? (
+            <svg className="w-3.5 h-3.5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5 shrink-0 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          )}
+        </span>
         <span>{copyFeedback ? labels.copied : labels.copy}</span>
       </button>
 
@@ -468,7 +472,7 @@ export function ExportToolbarCapsule({
             disabled={!hasData}
             title={item.tip}
             onClick={() => onExportReport(item.fmt)}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+            className={`group masar-cta-sheen masar-action-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 border ${
               item.mono ? "font-mono" : ""
             } ${
               !hasData
@@ -480,13 +484,15 @@ export function ExportToolbarCapsule({
                 : "bg-slate-900/80 text-slate-200 border-slate-800/80 hover:bg-slate-800 hover:text-sky-300 hover:border-sky-500/35"
             }`}
           >
-            {isSaved ? (
-              <svg className="w-3.5 h-3.5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            ) : (
-              item.icon
-            )}
+            <span className="inline-flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-115 group-hover:-translate-y-0.5">
+              {isSaved ? (
+                <svg className="w-3.5 h-3.5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                item.icon
+              )}
+            </span>
             <span>{isSaved ? labels.saved : item.label}</span>
           </button>
         );
@@ -499,13 +505,15 @@ export function ExportToolbarCapsule({
         type="button"
         onClick={onOpenStudio}
         title={labels.guideTip}
-        className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/35 shadow-sm"
+        className="group masar-cta-sheen masar-action-btn px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/35 shadow-sm"
       >
-        <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4" strokeLinecap="round" />
-          <path d="M12 8h.01" strokeLinecap="round" />
-        </svg>
+        <span className="h-4 w-4 rounded-md bg-emerald-500/20 text-emerald-300 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[360deg] group-hover:scale-110">
+          <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4" strokeLinecap="round" />
+            <path d="M12 8h.01" strokeLinecap="round" />
+          </svg>
+        </span>
         <span>{labels.guide}</span>
         {hasData && (
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -515,8 +523,101 @@ export function ExportToolbarCapsule({
   );
 }
 
-export function ReportStudioModal({
-  open,
+const EXPORT_FORMAT_ICONS = {
+  copy: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  ),
+  html: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="8" y1="13" x2="16" y2="13" />
+      <line x1="8" y1="17" x2="13" y2="17" />
+    </svg>
+  ),
+  json: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1" />
+      <path d="M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1" />
+    </svg>
+  ),
+  csv: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <line x1="3" y1="15" x2="21" y2="15" />
+      <line x1="9" y1="3" x2="9" y2="21" />
+    </svg>
+  ),
+};
+
+const STUDIO_TAB_ICONS = {
+  all: (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  ),
+  live: (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 12h4l3-7 4 14 3-7h4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  exports: (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  ),
+  dictionary: (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  ),
+  preview: (
+    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+};
+
+export function ReportStudioModal(props) {
+  const { open, onClose, uiTheme } = props;
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  return (
+    <AnimatedModal
+      open={open}
+      onClose={onClose}
+      backdropClassName={`fixed inset-x-0 bottom-0 top-10 z-40 flex items-center justify-center p-3 sm:p-6 ${
+        uiTheme === "light"
+          ? "bg-slate-300/45 backdrop-blur-md"
+          : "bg-black/75 backdrop-blur-sm"
+      }`}
+      panelClassName="relative bg-slate-900 border border-slate-800 rounded-3xl max-w-5xl w-full max-h-full flex flex-col shadow-2xl overflow-hidden"
+    >
+      <ReportStudioContent {...props} />
+    </AnimatedModal>
+  );
+}
+
+function ReportStudioContent({
   onClose,
   lang,
   uiTheme,
@@ -531,8 +632,56 @@ export function ReportStudioModal({
   SectionAmbientBackground,
 }) {
   const [activeFilter, setActiveFilter] = useState("all");
+  const [renderedFilter, setRenderedFilter] = useState("all");
+  const [filterPhase, setFilterPhase] = useState("enter");
+  const tabTimerRef = useRef(null);
+  const bodyRef = useRef(null);
+  const tabsBarRef = useRef(null);
+  const tabBtnRefs = useRef({});
+  const [pillStyle, setPillStyle] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    ready: false,
+  });
 
-  if (!open) return null;
+  useEffect(() => {
+    if (activeFilter === renderedFilter) {
+      if (tabTimerRef.current) {
+        clearTimeout(tabTimerRef.current);
+        tabTimerRef.current = null;
+      }
+      setFilterPhase("enter");
+      return;
+    }
+
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduced) {
+      setRenderedFilter(activeFilter);
+      setFilterPhase("enter");
+      if (bodyRef.current) bodyRef.current.scrollTop = 0;
+      return;
+    }
+
+    setFilterPhase("exit");
+    if (tabTimerRef.current) clearTimeout(tabTimerRef.current);
+    tabTimerRef.current = setTimeout(() => {
+      tabTimerRef.current = null;
+      if (bodyRef.current) bodyRef.current.scrollTop = 0;
+      setRenderedFilter(activeFilter);
+      setFilterPhase("enter");
+    }, 105);
+
+    return () => {
+      if (tabTimerRef.current) {
+        clearTimeout(tabTimerRef.current);
+        tabTimerRef.current = null;
+      }
+    };
+  }, [activeFilter, renderedFilter]);
 
   const isAr = lang === "ar";
   const hops = snapshot?.hops || [];
@@ -1017,119 +1166,168 @@ export function ReportStudioModal({
         { id: "preview", label: "Live Report Preview" },
       ];
 
-  const showLive = activeFilter === "all" || activeFilter === "live";
-  const showExports = activeFilter === "all" || activeFilter === "exports";
-  const showDict = activeFilter === "all" || activeFilter === "dictionary";
-  const showPreview = activeFilter === "all" || activeFilter === "preview";
+  const measureTabPill = () => {
+    const btn = tabBtnRefs.current?.[activeFilter];
+    if (!btn) return;
+    setPillStyle({
+      x: btn.offsetLeft,
+      y: btn.offsetTop,
+      width: btn.offsetWidth,
+      height: btn.offsetHeight,
+      ready: true,
+    });
+  };
+
+  useLayoutEffect(() => {
+    measureTabPill();
+    const bar = tabsBarRef.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => measureTabPill());
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, [activeFilter, lang, hasData]);
+
+  const showLive = renderedFilter === "all" || renderedFilter === "live";
+  const showExports = renderedFilter === "all" || renderedFilter === "exports";
+  const showDict = renderedFilter === "all" || renderedFilter === "dictionary";
+  const showPreview = renderedFilter === "all" || renderedFilter === "preview";
 
   return (
     <div
-      className={`masar-backdrop-animate fixed inset-x-0 bottom-0 top-10 z-40 flex items-center justify-center p-3 sm:p-6 ${
-        uiTheme === "light"
-          ? "bg-slate-300/45 backdrop-blur-md"
-          : "bg-black/75 backdrop-blur-sm"
-      }`}
-      onClick={onClose}
+      dir={isAr ? "rtl" : "ltr"}
+      lang={isAr ? "ar" : "en"}
+      className="relative flex flex-col flex-1 min-h-0 overflow-hidden"
     >
-      <div
-        dir={isAr ? "rtl" : "ltr"}
-        lang={isAr ? "ar" : "en"}
-        className="masar-modal-animate relative bg-slate-900 border border-slate-800 rounded-3xl max-w-5xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {SectionAmbientBackground && <SectionAmbientBackground variant="mtr" />}
+      {SectionAmbientBackground && <SectionAmbientBackground variant="mtr" />}
 
-        {/* Modal Top Header */}
-        <div className="relative z-10 px-6 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-950/85">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-500/35 flex items-center justify-center text-sky-400 shrink-0">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <path d="M8 13h8M8 17h5" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-extrabold text-white">
-                {isAr
-                  ? "مركز التقارير الاحترافية وشرح جميع البيانات المستخرجة"
-                  : "Diagnostic Report Studio & Complete Extracted Data Guide"}
-              </h2>
-              <p className="text-xs text-slate-400">
-                {isAr
-                  ? "قراءة تفصيلية لنتائج فحصك الحالية، تصدير التقارير الرسمية، وشرح دقيق لكل رقم وعمود ومؤشر"
-                  : "Live interpretation of your trace telemetry, executive report exports, and in-depth guide to every metric"}
-              </p>
-            </div>
+      {/* Modal Top Header */}
+      <div className="relative z-10 shrink-0 px-6 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-950/85">
+        <div className="flex items-center gap-3">
+          <div className="masar-studio-float masar-icon-interactive relative w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-500/35 flex items-center justify-center text-sky-400 shrink-0 shadow-md shadow-sky-500/10">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <path d="M8 13h8M8 17h5" strokeLinecap="round" />
+            </svg>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-300 border border-slate-700 text-xs font-bold transition"
-          >
-            ✕ {isAr ? "إغلاق" : "Close"}
-          </button>
+          <div>
+            <h2 className="text-base sm:text-lg font-extrabold text-white">
+              {isAr
+                ? "مركز التقارير الاحترافية وشرح جميع البيانات المستخرجة"
+                : "Diagnostic Report Studio & Complete Extracted Data Guide"}
+            </h2>
+            <p className="text-xs text-slate-400">
+              {isAr
+                ? "قراءة تفصيلية لنتائج فحصك الحالية، تصدير التقارير الرسمية، وشرح دقيق لكل رقم وعمود ومؤشر"
+                : "Live interpretation of your trace telemetry, executive report exports, and in-depth guide to every metric"}
+            </p>
+          </div>
         </div>
 
-        {/* Sub-Navigation Filter Bar */}
-        <div className="relative z-10 px-6 py-2.5 border-b border-slate-800/80 bg-slate-950/60 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {filterTabs.map((tab) => {
-              const active = activeFilter === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveFilter(tab.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition border ${
-                    active
-                      ? "bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sm"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-900 border-transparent"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="masar-icon-btn px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-300 border border-slate-700 text-xs font-bold transition inline-flex items-center gap-1.5"
+        >
+          <span className="masar-icon-target">✕</span>
+          <span>{isAr ? "إغلاق" : "Close"}</span>
+        </button>
+      </div>
 
-          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 flex items-center gap-1.5">
-            {hasData ? (
-              isAr ? (
-                <>
-                  <span>الهدف النشط:</span>
-                  <bdi dir="ltr" className="font-mono text-sky-400">
-                    {snapshot.target}
-                  </bdi>
-                  <span>•</span>
-                  <span>{hopsCountAr}</span>
-                </>
-              ) : (
-                <>
-                  <span>Active Target:</span>
-                  <span className="font-mono text-sky-400">{snapshot.target}</span>
-                  <span>•</span>
-                  <span>{hopsCountEn}</span>
-                </>
-              )
-            ) : isAr ? (
-              "الوضع الحالي: جاهز للفحص"
-            ) : (
-              "Status: Standby"
-            )}
+      {/* Sub-Navigation Filter Bar with Sliding Indicator */}
+      <div className="relative z-10 shrink-0 px-6 py-2.5 border-b border-slate-800/80 bg-slate-950/60 flex flex-wrap items-center justify-between gap-2">
+        <div ref={tabsBarRef} className="relative flex flex-wrap items-center gap-1.5">
+          {pillStyle.ready && (
+            <span
+              aria-hidden="true"
+              className="masar-tab-pill-indicator bg-sky-500/20 border border-sky-500/45 shadow-sm shadow-sky-500/15"
+              style={{
+                width: `${pillStyle.width}px`,
+                height: `${pillStyle.height}px`,
+                transform: `translate3d(${pillStyle.x}px, ${pillStyle.y}px, 0)`,
+              }}
+            />
+          )}
+          {filterTabs.map((tab) => {
+            const active = activeFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                ref={(el) => {
+                  tabBtnRefs.current[tab.id] = el;
+                }}
+                type="button"
+                onClick={() => setActiveFilter(tab.id)}
+                className={`masar-icon-btn relative z-10 px-3 py-1 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5 border border-transparent ${
+                  active
+                    ? "text-sky-300"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"
+                }`}
+              >
+                <span className="masar-icon-target">{STUDIO_TAB_ICONS[tab.id]}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 flex items-center gap-2">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span
+              className={`masar-sonar-ring absolute inline-flex h-full w-full rounded-full ${
+                hasData ? "bg-emerald-400" : "bg-sky-400"
+              }`}
+            />
+            <span
+              className={`relative inline-flex rounded-full h-2 w-2 ${
+                hasData ? "bg-emerald-400" : "bg-sky-400/80"
+              }`}
+            />
           </span>
-        </div>
+          {hasData ? (
+            isAr ? (
+              <>
+                <span>الهدف النشط:</span>
+                <bdi dir="ltr" className="font-mono text-sky-400">
+                  {snapshot.target}
+                </bdi>
+                <span>•</span>
+                <span>{hopsCountAr}</span>
+              </>
+            ) : (
+              <>
+                <span>Active Target:</span>
+                <span className="font-mono text-sky-400">{snapshot.target}</span>
+                <span>•</span>
+                <span>{hopsCountEn}</span>
+              </>
+            )
+          ) : isAr ? (
+            "الوضع الحالي: جاهز للفحص"
+          ) : (
+            "Status: Standby"
+          )}
+        </span>
+      </div>
 
-        {/* Scrollable Studio Body */}
-        <div className="relative z-10 p-6 overflow-y-auto space-y-8">
+      {/* Scrollable Studio Body */}
+      <div
+        ref={bodyRef}
+        className="relative z-10 flex-1 min-h-0 p-6 overflow-y-auto overscroll-contain"
+      >
+        <div
+          key={renderedFilter}
+          className={`space-y-8 ${
+            filterPhase === "exit"
+              ? "masar-studio-content-exit"
+              : "masar-studio-content-enter"
+          }`}
+        >
           {/* Confirmation Notice Inside Modal if User Just Exported/Copied */}
           {reportNotice && (
-            <div className="rounded-xl bg-emerald-950/40 border border-emerald-500/40 px-4 py-3 flex items-center justify-between gap-3">
+            <div className="masar-studio-card rounded-xl bg-emerald-950/40 border border-emerald-500/40 px-4 py-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 text-xs text-emerald-300 font-semibold">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 shrink-0">
-                  ✓
-                </span>
+                <StatusLottie variant="success" size={22} />
                 <span>{reportNotice}</span>
               </div>
             </div>
@@ -1151,31 +1349,50 @@ export function ReportStudioModal({
               </div>
 
               {!hasData ? (
-                <div className="masar-well rounded-2xl border border-slate-800 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="space-y-1 text-center sm:text-start">
-                    <div className="text-sm font-bold text-white">
-                      {isAr
-                        ? "لم يبدأ استخراج القراءات الحية بعد"
-                        : "No Live Trace Telemetry Extracted Yet"}
+                <div
+                  className="masar-studio-card masar-lift-card masar-well relative overflow-hidden rounded-2xl border border-slate-800 p-5 flex flex-col sm:flex-row items-center justify-between gap-4"
+                  style={{ animationDelay: "30ms" }}
+                >
+                  <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-start">
+                    <div className="relative w-11 h-11 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+                      <span className="masar-sonar-ring absolute inset-0 rounded-2xl border border-sky-400/50 pointer-events-none" />
+                      <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 12h4l3-7 4 14 3-7h4" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     </div>
-                    <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
-                      {isAr
-                        ? "اضغط على زر «بدء الفحص الآن» ليقوم مسار بإرسال نبضات الفحص واستخراج قراءات الراوتر المنزلي وبوابة شركة الاتصالات والوجهة النهائية وتفسيرها هنا مباشرة."
-                        : "Click Start Live Trace Now so Masar can probe your local router, ISP gateway, and destination server and analyze your live numbers right here."}
-                    </p>
+                    <div className="space-y-1">
+                      <div className="text-sm font-bold text-white">
+                        {isAr
+                          ? "لم يبدأ استخراج القراءات الحية بعد"
+                          : "No Live Trace Telemetry Extracted Yet"}
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
+                        {isAr
+                          ? "اضغط على زر «بدء الفحص الآن» ليقوم مسار بإرسال نبضات الفحص واستخراج قراءات الراوتر المنزلي وبوابة شركة الاتصالات والوجهة النهائية وتفسيرها هنا مباشرة."
+                          : "Click Start Live Trace Now so Masar can probe your local router, ISP gateway, and destination server and analyze your live numbers right here."}
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={onStartTraceNow}
-                    className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-extrabold transition shrink-0 shadow-sm"
+                    className="group masar-cta-sheen masar-action-btn shrink-0 whitespace-nowrap active:scale-95 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 via-sky-400 to-cyan-400 hover:from-sky-400 hover:via-cyan-400 hover:to-emerald-400 text-slate-950 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_16px_-4px_rgba(14,165,233,0.38)] text-xs font-bold tracking-tight transition-all duration-300 inline-flex items-center gap-2"
                   >
-                    ▶ {isAr ? "بدء الفحص الآن" : "Start Live Trace Now"}
+                    <span className="h-4 w-4 shrink-0 rounded-md bg-slate-950/15 text-slate-950 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[360deg] group-hover:scale-110">
+                      <svg className="w-2.5 h-2.5 fill-current shrink-0" viewBox="0 0 12 12">
+                        <path d="M2.5 1.5L10.5 6L2.5 10.5V1.5Z" />
+                      </svg>
+                    </span>
+                    <span>{isAr ? "بدء الفحص الآن" : "Start Live Trace Now"}</span>
                   </button>
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div className="masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-2">
+                    <div
+                      className="masar-studio-card masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-2"
+                      style={{ animationDelay: "30ms" }}
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-sky-400">
                           <span dir="ltr" className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-sky-500/15 border border-sky-500/30">
@@ -1239,7 +1456,10 @@ export function ReportStudioModal({
                     </div>
 
                     {/* Card 2: ISP Gateway */}
-                    <div className="masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-2">
+                    <div
+                      className="masar-studio-card masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-2"
+                      style={{ animationDelay: "75ms" }}
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-sky-400">
                           <span dir="ltr" className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-sky-500/15 border border-sky-500/30">
@@ -1301,7 +1521,10 @@ export function ReportStudioModal({
                     </div>
 
                     {/* Card 3: Target End-to-End */}
-                    <div className="masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-2">
+                    <div
+                      className="masar-studio-card masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-2"
+                      style={{ animationDelay: "120ms" }}
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-400">
                           <span dir="ltr" className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/15 border border-emerald-500/30">
@@ -1358,7 +1581,10 @@ export function ReportStudioModal({
                     </div>
 
                     {/* Card 4: Overall Route Structure */}
-                    <div className="masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-2">
+                    <div
+                      className="masar-studio-card masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-2"
+                      style={{ animationDelay: "165ms" }}
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-sky-400">
                           <span dir="ltr" className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-sky-500/15 border border-sky-500/30">
@@ -1411,7 +1637,8 @@ export function ReportStudioModal({
                     ].map((item, idx) => (
                       <div
                         key={idx}
-                        className="masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-1.5"
+                        className="masar-studio-card masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 space-y-1.5"
+                        style={{ animationDelay: `${180 + idx * 45}ms` }}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-bold text-white">
@@ -1452,20 +1679,35 @@ export function ReportStudioModal({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {exportFormatCards.map((card) => (
+                {exportFormatCards.map((card, idx) => (
                   <div
                     key={card.id}
-                    className={`masar-lift-card masar-well rounded-2xl border p-4 flex flex-col justify-between gap-3 ${
+                    className={`masar-studio-card masar-lift-card masar-well masar-icon-btn relative overflow-hidden rounded-2xl border p-4 flex flex-col justify-between gap-3 ${
                       card.primary
                         ? "border-sky-500/40 bg-sky-950/20"
                         : "border-slate-800/90"
                     }`}
+                    style={{ animationDelay: `${70 + idx * 50}ms` }}
                   >
+                    {card.primary && (
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-sky-400/70 to-transparent opacity-80" />
+                    )}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-extrabold text-white">
-                          {card.title}
-                        </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`masar-icon-target w-7 h-7 rounded-xl border flex items-center justify-center shrink-0 ${
+                              card.primary
+                                ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                                : "bg-slate-900 text-sky-400 border-slate-800"
+                            }`}
+                          >
+                            {EXPORT_FORMAT_ICONS[card.id]}
+                          </span>
+                          <span className="text-sm font-extrabold text-white truncate">
+                            {card.title}
+                          </span>
+                        </div>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-300 border border-sky-500/30 shrink-0">
                           {card.badge}
                         </span>
@@ -1482,16 +1724,27 @@ export function ReportStudioModal({
                       type="button"
                       disabled={!hasData}
                       onClick={card.onClick}
-                      className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition border flex items-center justify-center gap-2 ${
+                      className={`group masar-cta-sheen masar-action-btn w-full py-2 px-3 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 border flex items-center justify-center gap-2 ${
                         !hasData
                           ? "bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed opacity-65"
                           : card.activeFeedback
                           ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
                           : card.primary
-                          ? "bg-sky-500 hover:bg-sky-400 text-slate-950 border-sky-400 shadow-sm"
+                          ? "bg-gradient-to-r from-sky-500 via-sky-400 to-cyan-400 hover:from-sky-400 hover:via-cyan-400 hover:to-emerald-400 text-slate-950 border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_20px_-4px_rgba(14,165,233,0.4)]"
                           : "bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-sky-300 border-slate-700"
                       }`}
                     >
+                      {hasData && (
+                        <span
+                          className={`h-5 w-5 rounded-lg flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                            card.primary && !card.activeFeedback
+                              ? "bg-slate-950/15 text-slate-950 group-hover:scale-110 group-hover:-translate-y-0.5"
+                              : "bg-sky-500/15 text-sky-400 group-hover:scale-110 group-hover:-translate-y-0.5"
+                          }`}
+                        >
+                          {EXPORT_FORMAT_ICONS[card.id]}
+                        </span>
+                      )}
                       <span>
                         {!hasData
                           ? isAr
@@ -1522,17 +1775,18 @@ export function ReportStudioModal({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {metricCards.map((m) => (
+                {metricCards.map((m, idx) => (
                   <div
                     key={m.num}
-                    className="masar-lift-card masar-well rounded-2xl border border-slate-800/90 p-4 flex flex-col justify-between gap-3"
+                    className="masar-studio-card masar-lift-card masar-well masar-icon-btn rounded-2xl border border-slate-800/90 p-4 flex flex-col justify-between gap-3"
+                    style={{ animationDelay: `${Math.min(idx, 11) * 32}ms` }}
                   >
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span
                             dir="ltr"
-                            className="text-[11px] font-mono font-extrabold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-300 border border-sky-500/30"
+                            className="masar-icon-target text-[11px] font-mono font-extrabold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-300 border border-sky-500/30"
                           >
                             {m.num}
                           </span>
@@ -1595,7 +1849,10 @@ export function ReportStudioModal({
           )}
 
           {showPreview && (
-            <section className="space-y-3">
+            <section
+              className="masar-studio-card space-y-3"
+              style={{ animationDelay: "60ms" }}
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-extrabold text-sky-400">
@@ -1614,15 +1871,20 @@ export function ReportStudioModal({
                   <button
                     type="button"
                     onClick={onCopySummary}
-                    className="px-3 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/35 text-xs font-bold transition"
+                    className="group masar-cta-sheen masar-action-btn px-3.5 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/35 text-xs font-bold transition-all duration-300 inline-flex items-center gap-2"
                   >
-                    {copyFeedback
-                      ? isAr
-                        ? "✓ تم النسخ إلى الحافظة"
-                        : "✓ Copied"
-                      : isAr
-                      ? "نسخ هذا التقرير الآن"
-                      : "Copy This Report"}
+                    <span className="h-4 w-4 rounded-md bg-sky-500/20 text-sky-300 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 group-hover:rotate-12">
+                      {EXPORT_FORMAT_ICONS.copy}
+                    </span>
+                    <span>
+                      {copyFeedback
+                        ? isAr
+                          ? "✓ تم النسخ إلى الحافظة"
+                          : "✓ Copied"
+                        : isAr
+                        ? "نسخ هذا التقرير الآن"
+                        : "Copy This Report"}
+                    </span>
                   </button>
                 )}
               </div>

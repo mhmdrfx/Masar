@@ -26,9 +26,13 @@ export function GetLastSnapshot():Promise<mtr.TraceSnapshot>;
 
 export function GetLastSpeedSnapshot():Promise<nettools.SpeedSnapshot>;
 
+export function GetSpeedMeta():Promise<nettools.SpeedMeta>;
+
 export function IsRunning():Promise<boolean>;
 
 export function IsSpeedRunning():Promise<boolean>;
+
+export function PlayStartupChime():Promise<void>;
 
 export function RunDNSLookup(arg1:string):Promise<nettools.DNSReport>;
 
@@ -37,6 +41,8 @@ export function RunPortScan(arg1:string,arg2:Array<number>):Promise<nettools.Por
 export function RunSpeedBenchmark():Promise<nettools.SpeedSnapshot>;
 
 export function StartSpeedBenchmark():Promise<void>;
+
+export function StartSpeedBenchmarkWithMode(arg1:string):Promise<void>;
 
 export function StartTrace(arg1:string):Promise<void>;
 
