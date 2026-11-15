@@ -60,11 +60,11 @@
 @keyframes masarPageEnter {
   0% {
     opacity: 0;
-    transform: translate3d(0, var(--masar-slide-y), 0) scale(var(--masar-scale-enter));
+    transform: translateY(var(--masar-slide-y));
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: none;
   }
 }
 
@@ -78,30 +78,24 @@
 }
 
 /* --------------------------------------------------------------------------
- * 2) Sequential Stagger Reveals (48ms spacing)
+ * 2) Sequential Stagger Reveals (48ms spacing, clean exit back to ClearType)
  * -------------------------------------------------------------------------- */
 .masar-stagger-1 {
-  backface-visibility: hidden;
   animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 0) both;
 }
 .masar-stagger-2 {
-  backface-visibility: hidden;
   animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 1) both;
 }
 .masar-stagger-3 {
-  backface-visibility: hidden;
   animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 2) both;
 }
 .masar-stagger-4 {
-  backface-visibility: hidden;
   animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 3) both;
 }
 .masar-stagger-5 {
-  backface-visibility: hidden;
   animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 4) both;
 }
 .masar-stagger-6 {
-  backface-visibility: hidden;
   animation: masarPageEnter var(--masar-dur-enter) var(--masar-ease-spring) calc(var(--masar-stagger-step) * 5) both;
 }
 
@@ -186,13 +180,13 @@
  * -------------------------------------------------------------------------- */
 .masar-glass-hover {
   transition:
-    transform var(--masar-dur-card) var(--masar-ease-spring),
     box-shadow var(--masar-dur-card) var(--masar-ease-smooth),
-    border-color var(--masar-dur-card) var(--masar-ease-smooth);
+    border-color var(--masar-dur-card) var(--masar-ease-smooth),
+    background-color var(--masar-dur-card) var(--masar-ease-smooth);
 }
 
 .masar-glass-hover:hover {
-  transform: translate3d(0, -2px, 0);
+  border-color: rgba(56, 189, 248, 0.32);
 }
 
 /* --------------------------------------------------------------------------
@@ -325,22 +319,39 @@
 .masar-action-btn {
   position: relative;
   overflow: hidden;
-  transform: translate3d(0, 0, 0);
   transition:
-    transform 280ms var(--masar-ease-spring),
-    box-shadow 280ms var(--masar-ease-smooth),
-    background-color 250ms var(--masar-ease-smooth),
-    border-color 250ms var(--masar-ease-smooth),
-    color 250ms var(--masar-ease-smooth);
+    box-shadow 240ms var(--masar-ease-smooth),
+    background-color 220ms var(--masar-ease-smooth),
+    border-color 220ms var(--masar-ease-smooth),
+    color 220ms var(--masar-ease-smooth);
 }
 
 .masar-action-btn:not(:disabled):hover {
-  transform: translate3d(0, -2px, 0) scale(1.018);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+    0 4px 12px -4px rgba(2, 6, 23, 0.4);
 }
 
 .masar-action-btn:not(:disabled):active {
-  transform: translate3d(0, 0, 0) scale(0.96);
+  transform: scale(0.97);
   transition-duration: 90ms;
+}
+
+@keyframes masarCtaSheenSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-180%) skewX(-18deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(300%) skewX(-18deg);
+  }
 }
 
 .masar-cta-sheen {
@@ -351,21 +362,24 @@
 .masar-cta-sheen::after {
   content: "";
   position: absolute;
-  inset: 0;
-  width: 58%;
+  top: -15%;
+  bottom: -15%;
+  left: 0;
+  right: auto;
+  width: 52%;
+  opacity: 0;
   background: linear-gradient(
     110deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.36) 50%,
+    rgba(255, 255, 255, 0.30) 50%,
     transparent 100%
   );
-  transform: translateX(-160%) skewX(-18deg);
-  transition: transform 640ms var(--masar-ease-smooth);
+  transform: translateX(-220%) skewX(-18deg);
   pointer-events: none;
 }
 
-.masar-cta-sheen:hover::after {
-  transform: translateX(260%) skewX(-18deg);
+.masar-cta-sheen:not(:disabled):hover::after {
+  animation: masarCtaSheenSweep 620ms var(--masar-ease-smooth) 1 forwards;
 }
 
 /* --------------------------------------------------------------------------
@@ -509,33 +523,33 @@
 @keyframes masarTitlebarDrop {
   0% {
     opacity: 0;
-    transform: translate3d(0, -14px, 0);
+    transform: translateY(-14px);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: none;
   }
 }
 
 @keyframes masarHeaderUnfold {
   0% {
     opacity: 0;
-    transform: translate3d(0, 18px, 0) scale(0.985);
+    transform: translateY(18px) scale(0.985);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: none;
   }
 }
 
 @keyframes masarWorkspaceCardCascade {
   0% {
     opacity: 0;
-    transform: translate3d(0, 22px, 0) scale(0.985);
+    transform: translateY(22px) scale(0.985);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: none;
   }
 }
 
@@ -553,42 +567,34 @@
 }
 
 .masar-workspace-entering .masar-boot-titlebar {
-  will-change: transform, opacity;
   animation: masarTitlebarDrop 420ms var(--masar-ease-spring) 20ms both !important;
 }
 
 .masar-workspace-entering .masar-boot-header {
-  will-change: transform, opacity;
   animation: masarHeaderUnfold 480ms var(--masar-ease-spring) 80ms both !important;
 }
 
 .masar-workspace-entering .masar-stagger-1 {
-  will-change: transform, opacity;
   animation: masarWorkspaceCardCascade 520ms var(--masar-ease-spring) 150ms both !important;
 }
 
 .masar-workspace-entering .masar-stagger-2 {
-  will-change: transform, opacity;
   animation: masarWorkspaceCardCascade 540ms var(--masar-ease-spring) 220ms both !important;
 }
 
 .masar-workspace-entering .masar-stagger-3 {
-  will-change: transform, opacity;
   animation: masarWorkspaceCardCascade 560ms var(--masar-ease-spring) 290ms both !important;
 }
 
 .masar-workspace-entering .masar-stagger-4 {
-  will-change: transform, opacity;
   animation: masarWorkspaceCardCascade 580ms var(--masar-ease-spring) 350ms both !important;
 }
 
 .masar-workspace-entering .masar-stagger-5 {
-  will-change: transform, opacity;
   animation: masarWorkspaceCardCascade 600ms var(--masar-ease-spring) 410ms both !important;
 }
 
 .masar-workspace-entering .masar-stagger-6 {
-  will-change: transform, opacity;
   animation: masarWorkspaceCardCascade 620ms var(--masar-ease-spring) 460ms both !important;
 }
 
@@ -620,8 +626,13 @@
   .masar-icon-target,
   .masar-glass-hover,
   .masar-collapse-track,
-  .masar-tab-pill-indicator,
-  .masar-cta-sheen::after {
+  .masar-tab-pill-indicator {
     transition-duration: 0.01ms !important;
+  }
+
+  .masar-cta-sheen::after,
+  .masar-cta-sheen:not(:disabled):hover::after {
+    animation: none !important;
+    opacity: 0 !important;
   }
 }

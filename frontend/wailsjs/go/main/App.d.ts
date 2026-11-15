@@ -36,15 +36,23 @@ export function PlayStartupChime():Promise<void>;
 
 export function RunDNSLookup(arg1:string):Promise<nettools.DNSReport>;
 
+export function RunDNSLookupWithOptions(arg1:string,arg2:string,arg3:boolean):Promise<nettools.DNSReport>;
+
 export function RunPortScan(arg1:string,arg2:Array<number>):Promise<nettools.PortScanReport>;
 
+export function RunPortScanSpec(arg1:string,arg2:string):Promise<nettools.PortScanReport>;
+
 export function RunSpeedBenchmark():Promise<nettools.SpeedSnapshot>;
+
+export function RunTLSInspect(arg1:string,arg2:number):Promise<nettools.TLSCertReport>;
 
 export function StartSpeedBenchmark():Promise<void>;
 
 export function StartSpeedBenchmarkWithMode(arg1:string):Promise<void>;
 
 export function StartTrace(arg1:string):Promise<void>;
+
+export function StartTraceWithMode(arg1:string,arg2:string):Promise<void>;
 
 export function StopSpeedBenchmark():Promise<void>;
 

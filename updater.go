@@ -177,7 +177,7 @@ func (a *App) DownloadAndInstallUpdate() error {
 	}
 
 	dir := filepath.Join(os.TempDir(), "masar-update")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	safeVer := sanitizeVersionFilenameToken(latest.LatestVersion)
@@ -237,11 +237,16 @@ func (a *App) downloadInstaller(ctx context.Context, url, dest string, expectedS
 		return "", errors.New("installer is unexpectedly large")
 	}
 
-	out, err := os.Create(dest)
+	out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return "", err
 	}
-	defer out.Close()
+	outClosed := false
+	defer func() {
+		if !outClosed {
+			_ = out.Close()
+		}
+	}()
 
 	hasher := sha256.New()
 	writer := io.MultiWriter(out, hasher)
@@ -273,6 +278,10 @@ func (a *App) downloadInstaller(ctx context.Context, url, dest string, expectedS
 	}
 	a.emitUpdateProgress(newProgress(downloaded, downloaded))
 
+	if err := out.Sync(); err != nil {
+		return "", err
+	}
+	outClosed = true
 	if err := out.Close(); err != nil {
 		return "", err
 	}

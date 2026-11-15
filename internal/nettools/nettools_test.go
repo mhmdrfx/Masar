@@ -253,12 +253,12 @@ func TestLiveSpeedBenchmarkIntegration(t *testing.T) {
 	if !lastSnap.Completed {
 		t.Fatalf("expected benchmark Completed=true, got phase=%s progress=%d", lastSnap.Phase, lastSnap.Progress)
 	}
-	if lastSnap.FinalDownloadMbps <= 0 || lastSnap.FinalDownloadMbps < lastSnap.PeakDownloadMbps {
-		t.Fatalf("expected FinalDownloadMbps > 0 and matching Peak, got final=%.2f peak=%.2f",
+	if lastSnap.FinalDownloadMbps <= 0 || lastSnap.PeakDownloadMbps < lastSnap.FinalDownloadMbps {
+		t.Fatalf("expected FinalDownloadMbps > 0 and <= Peak, got final=%.2f peak=%.2f",
 			lastSnap.FinalDownloadMbps, lastSnap.PeakDownloadMbps)
 	}
-	if lastSnap.FinalUploadMbps <= 0 || lastSnap.FinalUploadMbps < lastSnap.PeakUploadMbps {
-		t.Fatalf("expected FinalUploadMbps > 0 and matching Peak, got final=%.2f peak=%.2f",
+	if lastSnap.FinalUploadMbps <= 0 || lastSnap.PeakUploadMbps < lastSnap.FinalUploadMbps {
+		t.Fatalf("expected FinalUploadMbps > 0 and <= Peak, got final=%.2f peak=%.2f",
 			lastSnap.FinalUploadMbps, lastSnap.PeakUploadMbps)
 	}
 	if len(downSamples) >= 4 {
@@ -291,15 +291,33 @@ func TestLiveSpeedBenchmarkIntegration(t *testing.T) {
 	}
 }
 
-func TestResolveFinalPeakSpeedUsesHighestSteadyReading(t *testing.T) {
-	if got := resolveFinalPeakSpeed(99.64, 69.1, []float64{60, 70, 99.6}); got != 99.6 {
-		t.Fatalf("expected highest reached steady peak 99.6, got %.1f", got)
+func TestResolveSustainedSpeedScoreUsesTrimmedMean(t *testing.T) {
+	// Trimmed middle-60% mean from steady slices MUST govern final sustained score rather than peak burst outliers
+	slices := []float64{
+		10, 20, 30, 40, 50, 60,
+		100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+		500, 900,
 	}
-	if got := resolveFinalPeakSpeed(0, 82.44, []float64{60, 70}); got != 82.4 {
-		t.Fatalf("expected ema fallback 82.4 when peak=0, got %.1f", got)
+	if got := resolveSustainedSpeedScore(900.0, 145.0, slices); got != 100.0 {
+		t.Fatalf("expected middle-60%% trimmed mean 100.0, got %.1f", got)
 	}
-	if got := resolveFinalPeakSpeed(0, 0, []float64{50, 50, 50, 50, 50, 50}); got != 50.0 {
-		t.Fatalf("expected slice fallback 50.0, got %.1f", got)
+	if got := resolveSustainedSpeedScore(99.64, 82.44, nil); got != 82.4 {
+		t.Fatalf("expected ema fallback 82.4 when slices empty, got %.1f", got)
+	}
+	if got := resolveSustainedSpeedScore(99.64, 0, nil); got != 99.6 {
+		t.Fatalf("expected peak fallback 99.6 when slices and ema empty, got %.1f", got)
+	}
+}
+
+func TestClassifyPortDialError(t *testing.T) {
+	if got := classifyPortDialError(context.DeadlineExceeded); got != "filtered" {
+		t.Errorf("expected DeadlineExceeded to classify as filtered, got %q", got)
+	}
+	if got := classifyPortDialError(os.ErrDeadlineExceeded); got != "filtered" {
+		t.Errorf("expected ErrDeadlineExceeded to classify as filtered, got %q", got)
+	}
+	if got := classifyPortDialError(errors.New("connection refused")); got != "closed" {
+		t.Errorf("expected connection refused to classify as closed, got %q", got)
 	}
 }
 
@@ -382,5 +400,103 @@ func TestMeteredUploadReaderCapsChunkSlice(t *testing.T) {
 	}
 	if n > 16*1024 || n <= 0 {
 		t.Fatalf("expected capped read <= 16KB for smooth metering, got %d", n)
+	}
+}
+
+func TestChooseOptimalEndpointPrefersLowerRTTAndIPv4TieBreaker(t *testing.T) {
+	// Scenario 1: IPv4 reaches local POP (15.2ms) while IPv6 routes to Marseille (58.4ms) -> pick IPv4
+	localV4 := speedEndpointCandidate{network: "tcp4", remoteAddr: "104.16.132.229:443", rttMs: 15.2, ok: true}
+	euV6 := speedEndpointCandidate{network: "tcp6", remoteAddr: "[2606:4700::1]:443", rttMs: 58.4, ok: true}
+	best, ok := chooseOptimalEndpoint(localV4, euV6)
+	if !ok || best.network != "tcp4" {
+		t.Fatalf("expected tcp4 (15.2ms) to beat tcp6 (58.4ms), got ok=%v net=%s", ok, best.network)
+	}
+
+	// Scenario 2: IPv6 is decisively closer (11.0ms vs 42.0ms) -> pick IPv6
+	slowV4 := speedEndpointCandidate{network: "tcp4", remoteAddr: "104.16.132.229:443", rttMs: 42.0, ok: true}
+	fastV6 := speedEndpointCandidate{network: "tcp6", remoteAddr: "[2606:4700::1]:443", rttMs: 11.0, ok: true}
+	best2, ok2 := chooseOptimalEndpoint(slowV4, fastV6)
+	if !ok2 || best2.network != "tcp6" {
+		t.Fatalf("expected tcp6 (11.0ms) to beat tcp4 (42.0ms), got ok=%v net=%s", ok2, best2.network)
+	}
+
+	// Scenario 3: Near-tie (<= 3.0ms) favors tcp4 for stability
+	tieV4 := speedEndpointCandidate{network: "tcp4", remoteAddr: "104.16.132.229:443", rttMs: 15.5, ok: true}
+	tieV6 := speedEndpointCandidate{network: "tcp6", remoteAddr: "[2606:4700::1]:443", rttMs: 13.5, ok: true}
+	best3, ok3 := chooseOptimalEndpoint(tieV4, tieV6)
+	if !ok3 || best3.network != "tcp4" {
+		t.Fatalf("expected near-tie to favor tcp4, got ok=%v net=%s", ok3, best3.network)
+	}
+
+	// Scenario 4: Single-stack IPv6 only
+	failedV4 := speedEndpointCandidate{network: "tcp4", ok: false}
+	best4, ok4 := chooseOptimalEndpoint(failedV4, euV6)
+	if !ok4 || best4.network != "tcp6" {
+		t.Fatalf("expected fallback to valid tcp6 candidate, got ok=%v net=%s", ok4, best4.network)
+	}
+
+	// Scenario 5: Redirected portal stops benchmark immediately
+	portalV6 := speedEndpointCandidate{network: "tcp6", redirected: true}
+	best5, ok5 := chooseOptimalEndpoint(localV4, portalV6)
+	if ok5 || !best5.redirected {
+		t.Fatalf("expected captive redirect to reject endpoint race, got ok=%v redirected=%v", ok5, best5.redirected)
+	}
+}
+
+func TestAnnotateSpeedMetaTransport(t *testing.T) {
+	base := SpeedMeta{ServerName: "Cloudflare Anycast (JED)", ServerLocation: "Jeddah, SA • Anycast Edge"}
+	v4 := annotateSpeedMetaTransport(base, "tcp4")
+	if v4.ServerLocation != "Jeddah, SA • Anycast IPv4" {
+		t.Fatalf("unexpected tcp4 annotated location: %q", v4.ServerLocation)
+	}
+	v6 := annotateSpeedMetaTransport(base, "tcp6")
+	if v6.ServerLocation != "Jeddah, SA • Anycast IPv6" {
+		t.Fatalf("unexpected tcp6 annotated location: %q", v6.ServerLocation)
+	}
+}
+
+func TestResolvePinnedSpeedDialTargetOnlyPinsBenchmarkHost(t *testing.T) {
+	pinned := "104.16.132.229:443"
+	if got := resolvePinnedSpeedDialTarget("speed.cloudflare.com:443", pinned); got != pinned {
+		t.Fatalf("expected speed.cloudflare.com:443 to dial %q, got %q", pinned, got)
+	}
+	if got := resolvePinnedSpeedDialTarget("evil.example.com:443", pinned); got != "evil.example.com:443" {
+		t.Fatalf("non-benchmark host must not be rewritten, got %q", got)
+	}
+}
+
+func TestComputeDownloadAndUploadPlanScaling(t *testing.T) {
+	// ~94 Mbps fiber on low RTT -> continuous chunks with 6 streams download / 8 upload + 64KB write buffer
+	dlStreams, dlChunk := computeDownloadPlan(94.0, 14.0, "multi")
+	if dlStreams != 6 || dlChunk != 40_000_000 {
+		t.Fatalf("unexpected low-RTT multi download plan: streams=%d chunk=%d", dlStreams, dlChunk)
+	}
+	// High RTT BDP boost adds +2 parallel streams
+	dlStreamsHighRTT, _ := computeDownloadPlan(94.0, 58.0, "multi")
+	if dlStreamsHighRTT != 8 {
+		t.Fatalf("expected +2 BDP stream boost for 58ms RTT, got streams=%d", dlStreamsHighRTT)
+	}
+
+	ulStreams, ulChunk, ulSockBuf := computeUploadPlan(94.0, 14.0, "multi")
+	if ulStreams != 8 || ulChunk != 10*1024*1024 || ulSockBuf != 64*1024 {
+		t.Fatalf("unexpected upload plan: streams=%d chunk=%d sockBuf=%d", ulStreams, ulChunk, ulSockBuf)
+	}
+
+	// Single-connection mode always keeps 1 stream
+	sStreams, _ := computeDownloadPlan(500.0, 60.0, "single")
+	usStreams, _, _ := computeUploadPlan(500.0, 60.0, "single")
+	if sStreams != 1 || usStreams != 1 {
+		t.Fatalf("single mode must always keep 1 stream, got dl=%d ul=%d", sStreams, usStreams)
+	}
+}
+
+func TestComputeIntervalMbps(t *testing.T) {
+	// 11,750,000 bytes in 1.0s => 94.0 Mbps
+	got := computeIntervalMbps(11_750_000, 1.0)
+	if got < 93.9 || got > 94.1 {
+		t.Fatalf("expected ~94.0 Mbps, got %.3f", got)
+	}
+	if z := computeIntervalMbps(1000, 0); z != 0 {
+		t.Fatalf("expected 0 for zero duration, got %.3f", z)
 	}
 }

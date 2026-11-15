@@ -66,12 +66,24 @@ export function RunDNSLookup(arg1) {
   return window['go']['main']['App']['RunDNSLookup'](arg1);
 }
 
+export function RunDNSLookupWithOptions(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RunDNSLookupWithOptions'](arg1, arg2, arg3);
+}
+
 export function RunPortScan(arg1, arg2) {
   return window['go']['main']['App']['RunPortScan'](arg1, arg2);
 }
 
+export function RunPortScanSpec(arg1, arg2) {
+  return window['go']['main']['App']['RunPortScanSpec'](arg1, arg2);
+}
+
 export function RunSpeedBenchmark() {
   return window['go']['main']['App']['RunSpeedBenchmark']();
+}
+
+export function RunTLSInspect(arg1, arg2) {
+  return window['go']['main']['App']['RunTLSInspect'](arg1, arg2);
 }
 
 export function StartSpeedBenchmark() {
@@ -84,6 +96,10 @@ export function StartSpeedBenchmarkWithMode(arg1) {
 
 export function StartTrace(arg1) {
   return window['go']['main']['App']['StartTrace'](arg1);
+}
+
+export function StartTraceWithMode(arg1, arg2) {
+  return window['go']['main']['App']['StartTraceWithMode'](arg1, arg2);
 }
 
 export function StopSpeedBenchmark() {

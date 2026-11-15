@@ -20,6 +20,8 @@ export default {
         ],
         mono: [
           '"JetBrains Mono"',
+          '"IBM Plex Sans Arabic"',
+          '"Inter"',
           '"Cascadia Mono"',
           '"Cascadia Code"',
           "Consolas",

@@ -187,4 +187,99 @@ func TestEvaluateHealthScenarios(t *testing.T) {
 	if res4.CulpritHop != 5 || !strings.Contains(res4.Status, "Downstream Transit") {
 		t.Errorf("expected Hop 5 Downstream Transit diagnosis, got: %+v", res4)
 	}
+
+	// 5. Intermediate transit Hop 4 loses 15% AND destination Hop 6 loses 15% -> pinpoint Hop 4
+	correlatedTransitIssue := []HopStat{
+		{Hop: 1, IP: "192.168.1.1", Sent: 20, Received: 20, LossPercent: 0.0, AvgMs: 1.5},
+		{Hop: 2, IP: "100.64.1.1", Sent: 20, Received: 20, LossPercent: 0.0, AvgMs: 7.2},
+		{Hop: 4, IP: "198.51.100.4", Sent: 20, Received: 17, LossPercent: 15.0, AvgMs: 42.0},
+		{Hop: 6, IP: "8.8.8.8", Sent: 20, Received: 17, LossPercent: 15.0, AvgMs: 48.0, ReachedDest: true},
+	}
+	res5 := EvaluateHealth(correlatedTransitIssue)
+	if res5.CulpritHop != 4 {
+		t.Errorf("expected downstream-correlated bottleneck on Hop 4, got: %+v", res5)
+	}
+
+	// 6. Intermediate Hop 4 shows 20% ICMP rate-limiting, but destination Hop 6 has 0% loss -> healthy
+	icmpRateLimitedTransit := []HopStat{
+		{Hop: 1, IP: "192.168.1.1", Sent: 20, Received: 20, LossPercent: 0.0, AvgMs: 1.5},
+		{Hop: 2, IP: "100.64.1.1", Sent: 20, Received: 20, LossPercent: 0.0, AvgMs: 7.2},
+		{Hop: 4, IP: "198.51.100.4", Sent: 20, Received: 16, LossPercent: 20.0, AvgMs: 42.0},
+		{Hop: 6, IP: "8.8.8.8", Sent: 20, Received: 20, LossPercent: 0.0, AvgMs: 45.0, ReachedDest: true},
+	}
+	res6 := EvaluateHealth(icmpRateLimitedTransit)
+	if res6.Severity != "healthy" || res6.CulpritHop != 0 {
+		t.Errorf("ICMP rate-limiting at intermediate hop falsely alerted: %+v", res6)
+	}
+}
+
+func TestECMPMaxDestTTLRecoveryAndCacheExpiration(t *testing.T) {
+	eng, err := NewEngine("2001:4860:4860::8888", nil)
+	if err != nil {
+		t.Fatalf("NewEngine IPv6 failed: %v", err)
+	}
+	if !eng.isIPv6 || eng.Snapshot().IPVersion != 6 || eng.Snapshot().Protocol != "ICMPv6" {
+		t.Fatalf("expected IPv6 engine metadata, got %+v", eng.Snapshot())
+	}
+
+	// ECMP multi-responder stability on Hop 3
+	eng.mu.Lock()
+	eng.inFlight[1] = probeRecord{ttl: 3, sentAt: time.Now().Add(-10 * time.Millisecond)}
+	eng.inFlight[2] = probeRecord{ttl: 3, sentAt: time.Now().Add(-12 * time.Millisecond)}
+	eng.inFlight[3] = probeRecord{ttl: 3, sentAt: time.Now().Add(-11 * time.Millisecond)}
+	eng.hops[3].sent = 3
+	eng.mu.Unlock()
+
+	eng.recordReply(1, "198.51.100.10", time.Now(), false)
+	eng.recordReply(2, "198.51.100.11", time.Now(), false)
+	eng.recordReply(3, "198.51.100.10", time.Now(), false)
+
+	snap := eng.Snapshot()
+	if len(snap.Hops) < 3 || snap.Hops[2].IP != "198.51.100.10" {
+		t.Fatalf("expected dominant ECMP IP 198.51.100.10, got hop=%+v", snap.Hops)
+	}
+	if len(snap.Hops[2].AltIPs) != 1 || snap.Hops[2].AltIPs[0] != "198.51.100.11" {
+		t.Fatalf("expected secondary ECMP AltIPs [198.51.100.11], got %+v", snap.Hops[2].AltIPs)
+	}
+
+	// Bidirectional maxDestTTL recovery after 2 missed destination sweeps
+	eng.mu.Lock()
+	eng.maxDestTTL = 5
+	eng.hops[5].reachedDest = true
+	eng.destSeenRound = false
+	eng.mu.Unlock()
+
+	if got := eng.beginSweepRound(); got != 5 {
+		t.Fatalf("first missed round should keep limit 5 while waiting confirmation, got %d", got)
+	}
+	if got := eng.beginSweepRound(); got != MaxHops {
+		t.Fatalf("second consecutive missed round must expand maxDestTTL back to %d, got %d", MaxHops, got)
+	}
+	if eng.hops[5].reachedDest {
+		t.Fatalf("expected stale reachedDest flag on hop 5 to be cleared upon route expansion")
+	}
+
+	// Cache expiration enforcement
+	sharedMetaMu.Lock()
+	sharedDNS["198.51.100.99"] = cachedDNSRecord{hostname: "stale.example", expiresAt: time.Now().Add(-1 * time.Second)}
+	sharedGeo["198.51.100.99"] = cachedGeoRecord{info: geoInfo{location: "OLD"}, expiresAt: time.Now().Add(-1 * time.Second)}
+	sharedMetaMu.Unlock()
+
+	if got := eng.lookupCachedHostname("198.51.100.99"); got != "" {
+		t.Errorf("expected expired DNS cache entry to return empty string, got %q", got)
+	}
+	if got := eng.lookupCachedGeo("198.51.100.99"); got.location != "" {
+		t.Errorf("expected expired Geo cache entry to return empty location, got %+v", got)
+	}
+}
+
+func TestBuildTeamCymruQuery(t *testing.T) {
+	q4, ok4 := buildTeamCymruQuery([]byte{1, 2, 3, 4})
+	if !ok4 || q4 != "4.3.2.1.origin.asn.cymru.com" {
+		t.Errorf("IPv4 Cymru query got %q (ok=%v)", q4, ok4)
+	}
+	q6, ok6 := buildTeamCymruQuery([]byte{0x20, 0x01, 0x48, 0x60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x88, 0x88})
+	if !ok6 || !strings.HasSuffix(q6, ".origin6.asn.cymru.com") || !strings.HasPrefix(q6, "8.8.8.8.") {
+		t.Errorf("IPv6 Cymru query got %q (ok=%v)", q6, ok6)
+	}
 }

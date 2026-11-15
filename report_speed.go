@@ -340,6 +340,12 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
       <th>%s</th>
       <td style="font-weight:600">%s → %s</td>
     </tr>
+    <tr>
+      <th>%s</th>
+      <td dir="ltr" style="font-weight:700;color:#0284c7">%s</td>
+      <th>%s</th>
+      <td dir="ltr" style="font-weight:600">%s</td>
+    </tr>
   </table>
 
   <div class="sec-heading">%s</div>
@@ -391,6 +397,29 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 		peakUpTitle, snap.PeakUploadMbps,
 		html.EscapeString(lblMode), html.EscapeString(modeLabel),
 		html.EscapeString(lblServerIsp), html.EscapeString(ispLabel), html.EscapeString(serverLabel),
+		func() string {
+			if isAr {
+				return "تقييم اختناق المخزن المؤقت (Bufferbloat)"
+			}
+			return "Bufferbloat Grade"
+		}(),
+		func() string {
+			g := snap.BufferbloatGrade
+			if g == "" {
+				g = nettools.ComputeBufferbloatGrade(ping, downPing, upPing)
+			}
+			if g == "" {
+				return "—"
+			}
+			return fmt.Sprintf("Grade %s (↓p95: %.1f ms | ↑p95: %.1f ms)", g, snap.DownloadLatencyP95, snap.UploadLatencyP95)
+		}(),
+		func() string {
+			if isAr {
+				return "توزيع الاستجابة المئوي (p50 / p95 / p99)"
+			}
+			return "Latency Percentiles (p50 / p95 / p99)"
+		}(),
+		fmt.Sprintf("%.1f / %.1f / %.1f ms", snap.LatencyP50Ms, snap.LatencyP95Ms, snap.LatencyP99Ms),
 		html.EscapeString(sec3Title),
 		html.EscapeString(thEdge),
 		html.EscapeString(thEndpoint),

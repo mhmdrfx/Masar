@@ -21,23 +21,29 @@ import (
 
 // DNSRecordItem represents a single resolved DNS resource record.
 type DNSRecordItem struct {
-	Type  string `json:"type"`
-	Value string `json:"value"`
+	Type      string  `json:"type"`
+	Value     string  `json:"value"`
+	TTL       uint32  `json:"ttl,omitempty"`
+	LatencyMs float64 `json:"latencyMs,omitempty"`
+	DNSSEC    bool    `json:"dnssec,omitempty"`
 }
 
 // DNSReport holds comprehensive DNS lookup results and timing telemetry.
 type DNSReport struct {
-	Target      string          `json:"target"`
-	QueryTimeMs float64         `json:"queryTimeMs"`
-	Records     []DNSRecordItem `json:"records"`
-	CheckedAt   string          `json:"checkedAt"`
+	Target          string          `json:"target"`
+	Resolver        string          `json:"resolver,omitempty"`
+	UseDoH          bool            `json:"useDoH,omitempty"`
+	DNSSECValidated bool            `json:"dnssecValidated,omitempty"`
+	QueryTimeMs     float64         `json:"queryTimeMs"`
+	Records         []DNSRecordItem `json:"records"`
+	CheckedAt       string          `json:"checkedAt"`
 }
 
 // PortResult represents the status and TCP handshake latency of a single port.
 type PortResult struct {
 	Port      int     `json:"port"`
 	Service   string  `json:"service"`
-	State     string  `json:"state"` // "open" | "closed"
+	State     string  `json:"state"` // "open" | "closed" | "filtered"
 	LatencyMs float64 `json:"latencyMs"`
 }
 
@@ -87,13 +93,19 @@ type SpeedSnapshot struct {
 	UploadMbps        float64        `json:"uploadMbps"`
 	PeakUploadMbps    float64        `json:"peakUploadMbps"`
 	FinalUploadMbps   float64        `json:"finalUploadMbps"`
-	PingMs            float64        `json:"pingMs"`
-	BestPingMs        float64        `json:"bestPingMs"`
-	MaxPingMs         float64        `json:"maxPingMs"`
-	LoadedPingMs      float64        `json:"loadedPingMs"`
-	DownloadLatencyMs float64        `json:"downloadLatencyMs"`
-	UploadLatencyMs   float64        `json:"uploadLatencyMs"`
-	JitterMs          float64        `json:"jitterMs"`
+	PingMs             float64        `json:"pingMs"`
+	BestPingMs         float64        `json:"bestPingMs"`
+	MaxPingMs          float64        `json:"maxPingMs"`
+	LatencyP50Ms       float64        `json:"latencyP50Ms,omitempty"`
+	LatencyP95Ms       float64        `json:"latencyP95Ms,omitempty"`
+	LatencyP99Ms       float64        `json:"latencyP99Ms,omitempty"`
+	LoadedPingMs       float64        `json:"loadedPingMs"`
+	DownloadLatencyMs  float64        `json:"downloadLatencyMs"`
+	DownloadLatencyP95 float64        `json:"downloadLatencyP95,omitempty"`
+	UploadLatencyMs    float64        `json:"uploadLatencyMs"`
+	UploadLatencyP95   float64        `json:"uploadLatencyP95,omitempty"`
+	BufferbloatGrade   string         `json:"bufferbloatGrade,omitempty"`
+	JitterMs           float64        `json:"jitterMs"`
 	PacketLoss        float64        `json:"packetLoss"`
 	TotalMB           float64        `json:"totalMB"`
 	ClientIP          string         `json:"clientIp"`
@@ -161,17 +173,23 @@ func LookupDNS(rawTarget string) (DNSReport, error) {
 
 	var mu sync.Mutex
 	records := make([]DNSRecordItem, 0, 16)
-	addRec := func(t, v string) {
+	addRec := func(t, v string, latMs float64) {
 		mu.Lock()
-		records = append(records, DNSRecordItem{Type: t, Value: v})
+		records = append(records, DNSRecordItem{
+			Type:      t,
+			Value:     v,
+			LatencyMs: round1(latMs),
+		})
 		mu.Unlock()
 	}
 
 	if parsedIP := net.ParseIP(target); parsedIP != nil {
+		q0 := time.Now()
 		names, err := net.DefaultResolver.LookupAddr(ctx, target)
+		qMs := float64(time.Since(q0).Microseconds()) / 1000.0
 		if err == nil {
 			for _, n := range names {
-				addRec("PTR", strings.TrimSuffix(n, "."))
+				addRec("PTR", strings.TrimSuffix(n, "."), qMs)
 			}
 		}
 	} else {
@@ -180,13 +198,15 @@ func LookupDNS(rawTarget string) (DNSReport, error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			q0 := time.Now()
 			ips, err := net.DefaultResolver.LookupIPAddr(ctx, target)
+			qMs := float64(time.Since(q0).Microseconds()) / 1000.0
 			if err == nil {
 				for _, ip := range ips {
 					if ip.IP.To4() != nil {
-						addRec("A", ip.IP.String())
+						addRec("A", ip.IP.String(), qMs)
 					} else {
-						addRec("AAAA", ip.IP.String())
+						addRec("AAAA", ip.IP.String(), qMs)
 					}
 				}
 			}
@@ -195,19 +215,23 @@ func LookupDNS(rawTarget string) (DNSReport, error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			q0 := time.Now()
 			cname, err := net.DefaultResolver.LookupCNAME(ctx, target)
+			qMs := float64(time.Since(q0).Microseconds()) / 1000.0
 			if err == nil && cname != "" && strings.TrimSuffix(cname, ".") != target {
-				addRec("CNAME", strings.TrimSuffix(cname, "."))
+				addRec("CNAME", strings.TrimSuffix(cname, "."), qMs)
 			}
 		}()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			q0 := time.Now()
 			mxs, err := net.DefaultResolver.LookupMX(ctx, target)
+			qMs := float64(time.Since(q0).Microseconds()) / 1000.0
 			if err == nil {
 				for _, mx := range mxs {
-					addRec("MX", fmt.Sprintf("%d %s", mx.Pref, strings.TrimSuffix(mx.Host, ".")))
+					addRec("MX", fmt.Sprintf("%d %s", mx.Pref, strings.TrimSuffix(mx.Host, ".")), qMs)
 				}
 			}
 		}()
@@ -215,10 +239,12 @@ func LookupDNS(rawTarget string) (DNSReport, error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			q0 := time.Now()
 			nss, err := net.DefaultResolver.LookupNS(ctx, target)
+			qMs := float64(time.Since(q0).Microseconds()) / 1000.0
 			if err == nil {
 				for _, ns := range nss {
-					addRec("NS", strings.TrimSuffix(ns.Host, "."))
+					addRec("NS", strings.TrimSuffix(ns.Host, "."), qMs)
 				}
 			}
 		}()
@@ -226,10 +252,12 @@ func LookupDNS(rawTarget string) (DNSReport, error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			q0 := time.Now()
 			txts, err := net.DefaultResolver.LookupTXT(ctx, target)
+			qMs := float64(time.Since(q0).Microseconds()) / 1000.0
 			if err == nil {
 				for _, txt := range txts {
-					addRec("TXT", txt)
+					addRec("TXT", txt, qMs)
 				}
 			}
 		}()
@@ -343,7 +371,7 @@ func ScanPorts(rawHost string, ports []int) (PortScanReport, error) {
 				results[idx] = PortResult{
 					Port:      port,
 					Service:   svc,
-					State:     "closed",
+					State:     classifyPortDialError(err),
 					LatencyMs: 0,
 				}
 			}
@@ -367,6 +395,20 @@ func ScanPorts(rawHost string, ports []int) (PortScanReport, error) {
 		DurationMs: round1(float64(time.Since(start).Microseconds()) / 1000.0),
 		Results:    results,
 	}, nil
+}
+
+func classifyPortDialError(err error) string {
+	if err == nil {
+		return "open"
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "filtered"
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return "filtered"
+	}
+	return "closed"
 }
 
 type edgeStatInternal struct {
@@ -435,6 +477,21 @@ func (ct *connTracker) track(c net.Conn) net.Conn {
 	return c
 }
 
+func (ct *connTracker) setWriteBufferAll(sz int) {
+	if sz <= 0 {
+		return
+	}
+	ct.mu.Lock()
+	conns := make([]net.Conn, len(ct.conns))
+	copy(conns, ct.conns)
+	ct.mu.Unlock()
+	for _, c := range conns {
+		if tc, ok := c.(*net.TCPConn); ok {
+			_ = tc.SetWriteBuffer(sz)
+		}
+	}
+}
+
 func (ct *connTracker) closeAll() {
 	ct.mu.Lock()
 	if ct.closed {
@@ -460,8 +517,30 @@ func isAllowedSpeedURL(u *url.URL) bool {
 	return host == "speed.cloudflare.com" || host == "1.1.1.1"
 }
 
-// newSpeedHTTP1Client creates an HTTP/1.1 keep-alive transport so each stream owns an independent TCP socket.
-func newSpeedHTTP1Client(readBuf, writeBuf int, tracker *connTracker) (*http.Transport, *http.Client) {
+func isSpeedBenchmarkAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	return err == nil && strings.EqualFold(host, "speed.cloudflare.com")
+}
+
+func resolvePinnedSpeedDialTarget(addr, pinnedAddr string) string {
+	if pinnedAddr != "" && isSpeedBenchmarkAddr(addr) {
+		return pinnedAddr
+	}
+	return addr
+}
+
+type speedClientConfig struct {
+	readBuf      int
+	writeBuf     int
+	tracker      *connTracker
+	network      string
+	pinnedAddr   string
+	sockWriteBuf int
+}
+
+// newPinnedSpeedHTTP1Client creates an HTTP/1.1 keep-alive transport optionally pinned to a
+// verified IP stack/address while preserving TLS SNI and certificate validation on host.
+func newPinnedSpeedHTTP1Client(cfg speedClientConfig) (*http.Transport, *http.Client) {
 	baseDialer := &net.Dialer{
 		Timeout:   4 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -469,12 +548,22 @@ func newSpeedHTTP1Client(readBuf, writeBuf int, tracker *connTracker) (*http.Tra
 	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			c, err := baseDialer.DialContext(ctx, network, addr)
+			dialNet := network
+			if cfg.network != "" {
+				dialNet = cfg.network
+			}
+			dialTarget := resolvePinnedSpeedDialTarget(addr, cfg.pinnedAddr)
+			c, err := baseDialer.DialContext(ctx, dialNet, dialTarget)
 			if err != nil {
 				return nil, err
 			}
-			if tracker != nil {
-				return tracker.track(c), nil
+			if cfg.sockWriteBuf > 0 {
+				if tc, ok := c.(*net.TCPConn); ok {
+					_ = tc.SetWriteBuffer(cfg.sockWriteBuf)
+				}
+			}
+			if cfg.tracker != nil {
+				return cfg.tracker.track(c), nil
 			}
 			return c, nil
 		},
@@ -490,8 +579,8 @@ func newSpeedHTTP1Client(readBuf, writeBuf int, tracker *connTracker) (*http.Tra
 		MaxIdleConns:          8,
 		MaxIdleConnsPerHost:   8,
 		IdleConnTimeout:       30 * time.Second,
-		ReadBufferSize:        readBuf,
-		WriteBufferSize:       writeBuf,
+		ReadBufferSize:        cfg.readBuf,
+		WriteBufferSize:       cfg.writeBuf,
 	}
 	client := &http.Client{
 		Transport: tr,
@@ -503,6 +592,15 @@ func newSpeedHTTP1Client(readBuf, writeBuf int, tracker *connTracker) (*http.Tra
 		},
 	}
 	return tr, client
+}
+
+// newSpeedHTTP1Client creates an HTTP/1.1 keep-alive transport so each stream owns an independent TCP socket.
+func newSpeedHTTP1Client(readBuf, writeBuf int, tracker *connTracker) (*http.Transport, *http.Client) {
+	return newPinnedSpeedHTTP1Client(speedClientConfig{
+		readBuf:  readBuf,
+		writeBuf: writeBuf,
+		tracker:  tracker,
+	})
 }
 
 // setSpeedBrowserHeaders attaches standard browser headers required by speed.cloudflare.com WAF/CORS policy.
@@ -589,43 +687,334 @@ func parseSpeedMetaJSON(data []byte) (SpeedMeta, bool) {
 	}, true
 }
 
-// FetchSpeedMeta discovers client ISP, public IP, and active Cloudflare Anycast server POP.
+type speedEndpointCandidate struct {
+	network    string // "tcp4" | "tcp6" | ""
+	remoteAddr string // resolved ip:port (or [ipv6]:port)
+	rttMs      float64
+	meta       SpeedMeta
+	redirected bool
+	ok         bool
+}
+
+func annotateSpeedMetaTransport(meta SpeedMeta, network string) SpeedMeta {
+	var tag string
+	switch network {
+	case "tcp4":
+		tag = "IPv4"
+	case "tcp6":
+		tag = "IPv6"
+	default:
+		return meta
+	}
+	if strings.Contains(meta.ServerLocation, "Anycast Edge") {
+		meta.ServerLocation = strings.Replace(meta.ServerLocation, "Anycast Edge", "Anycast "+tag, 1)
+	} else if meta.ServerLocation != "" && !strings.Contains(meta.ServerLocation, tag) {
+		meta.ServerLocation = meta.ServerLocation + " • " + tag
+	}
+	return meta
+}
+
+func measureBareTCPRTT(ctx context.Context, network, addr string, attempts int) (float64, bool) {
+	if addr == "" || attempts <= 0 {
+		return 0, false
+	}
+	if network == "" {
+		network = "tcp"
+	}
+	var best float64
+	for i := 0; i < attempts; i++ {
+		if ctx.Err() != nil {
+			break
+		}
+		pCtx, cancel := context.WithTimeout(ctx, 850*time.Millisecond)
+		dialer := &net.Dialer{Timeout: 800 * time.Millisecond}
+		t0 := time.Now()
+		conn, err := dialer.DialContext(pCtx, network, addr)
+		cancel()
+		if err == nil {
+			_ = conn.Close()
+			rtt := float64(time.Since(t0).Microseconds()) / 1000.0
+			if rtt > 0 && (best == 0 || rtt < best) {
+				best = rtt
+			}
+		}
+	}
+	return best, best > 0
+}
+
+func probeStackCandidate(ctx context.Context, netFamily string) speedEndpointCandidate {
+	reqCtx, cancel := context.WithTimeout(ctx, 2200*time.Millisecond)
+	defer cancel()
+
+	tracker := &connTracker{}
+	defer tracker.closeAll()
+
+	tr, cl := newPinnedSpeedHTTP1Client(speedClientConfig{
+		readBuf:  16 * 1024,
+		writeBuf: 16 * 1024,
+		tracker:  tracker,
+		network:  netFamily,
+	})
+	defer tr.CloseIdleConnections()
+
+	origDial := tr.DialContext
+	var remoteMu sync.Mutex
+	var remoteAddr string
+	tr.DialContext = func(dCtx context.Context, network, addr string) (net.Conn, error) {
+		c, err := origDial(dCtx, network, addr)
+		if err == nil && c != nil && c.RemoteAddr() != nil && isSpeedBenchmarkAddr(addr) {
+			remoteMu.Lock()
+			if remoteAddr == "" {
+				remoteAddr = c.RemoteAddr().String()
+			}
+			remoteMu.Unlock()
+		}
+		return c, err
+	}
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, "https://speed.cloudflare.com/meta", nil)
+	if err != nil {
+		return speedEndpointCandidate{}
+	}
+	setSpeedBrowserHeaders(req)
+
+	tStart := time.Now()
+	resp, doErr := cl.Do(req)
+	if doErr != nil {
+		if strings.Contains(doErr.Error(), "blocked unsafe or off-origin redirect") {
+			return speedEndpointCandidate{network: netFamily, redirected: true}
+		}
+		return speedEndpointCandidate{}
+	}
+	defer resp.Body.Close()
+
+	if resp.Request != nil && !isAllowedSpeedURL(resp.Request.URL) {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		return speedEndpointCandidate{network: netFamily, redirected: true}
+	}
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		return speedEndpointCandidate{network: netFamily, redirected: true}
+	}
+	if resp.StatusCode != http.StatusOK {
+		return speedEndpointCandidate{}
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	if err != nil {
+		return speedEndpointCandidate{}
+	}
+	httpElapsedMs := float64(time.Since(tStart).Microseconds()) / 1000.0
+
+	meta, ok := parseSpeedMetaJSON(body)
+	if !ok {
+		return speedEndpointCandidate{}
+	}
+
+	remoteMu.Lock()
+	resolved := remoteAddr
+	remoteMu.Unlock()
+
+	rttMs := httpElapsedMs
+	if bareRTT, gotBare := measureBareTCPRTT(reqCtx, netFamily, resolved, 2); gotBare {
+		rttMs = bareRTT
+	}
+
+	return speedEndpointCandidate{
+		network:    netFamily,
+		remoteAddr: resolved,
+		rttMs:      rttMs,
+		meta:       meta,
+		ok:         true,
+	}
+}
+
+func chooseOptimalEndpoint(candidates ...speedEndpointCandidate) (speedEndpointCandidate, bool) {
+	var valid []speedEndpointCandidate
+	for _, c := range candidates {
+		if c.redirected {
+			return speedEndpointCandidate{redirected: true}, false
+		}
+		if c.ok {
+			valid = append(valid, c)
+		}
+	}
+	if len(valid) == 0 {
+		return speedEndpointCandidate{}, false
+	}
+	best := valid[0]
+	for _, c := range valid[1:] {
+		if c.rttMs <= 0 {
+			continue
+		}
+		if best.rttMs <= 0 {
+			best = c
+			continue
+		}
+		// Prefer IPv4 on near-ties (<= 3ms) to avoid IPv6 transit/PMTU drops; otherwise strictly pick lowest RTT POP.
+		if best.network == "tcp4" && c.network == "tcp6" && (best.rttMs-c.rttMs) <= 3.0 {
+			continue
+		}
+		if c.network == "tcp4" && best.network == "tcp6" && (c.rttMs-best.rttMs) <= 3.0 {
+			best = c
+			continue
+		}
+		if c.rttMs < best.rttMs {
+			best = c
+		}
+	}
+	return best, true
+}
+
+// selectOptimalSpeedEndpoint races IPv4 vs IPv6 to lock onto the closest/lowest-RTT Anycast POP.
+func selectOptimalSpeedEndpoint(ctx context.Context) speedEndpointCandidate {
+	var (
+		wg    sync.WaitGroup
+		cand4 speedEndpointCandidate
+		cand6 speedEndpointCandidate
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		cand4 = probeStackCandidate(ctx, "tcp4")
+	}()
+	go func() {
+		defer wg.Done()
+		cand6 = probeStackCandidate(ctx, "tcp6")
+	}()
+	wg.Wait()
+
+	if best, ok := chooseOptimalEndpoint(cand4, cand6); ok {
+		best.meta = annotateSpeedMetaTransport(best.meta, best.network)
+		return best
+	} else if best.redirected {
+		return best
+	}
+
+	// Proxy or dual-stack fallback without forcing address family
+	if fb := probeStackCandidate(ctx, ""); fb.ok || fb.redirected {
+		fb.meta = annotateSpeedMetaTransport(fb.meta, fb.network)
+		return fb
+	}
+	return speedEndpointCandidate{}
+}
+
+// FetchSpeedMeta discovers client ISP, public IP, and lowest-RTT Cloudflare Anycast server POP.
 func FetchSpeedMeta(ctx context.Context) SpeedMeta {
 	fallback := SpeedMeta{
 		ServerName:     "Cloudflare Anycast CDN",
 		ServerLocation: "Global Edge Network",
 	}
-	reqCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
-	defer cancel()
+	if chosen := selectOptimalSpeedEndpoint(ctx); chosen.ok {
+		return chosen.meta
+	}
+	return fallback
+}
 
-	tracker := &connTracker{}
-	defer tracker.closeAll()
-	tr, cl := newSpeedHTTP1Client(16*1024, 16*1024, tracker)
-	defer tr.CloseIdleConnections()
+func computeIntervalMbps(deltaBytes int64, deltaSec float64) float64 {
+	if deltaBytes <= 0 || deltaSec <= 0 {
+		return 0
+	}
+	return (float64(deltaBytes) * 8.0) / (deltaSec * 1_000_000.0)
+}
 
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, "https://speed.cloudflare.com/meta", nil)
-	if err != nil {
-		return fallback
+func computeDownloadPlan(recentMbps, rttMs float64, mode string) (targetStreams int, chunkBytes int64) {
+	if mode == "single" {
+		targetStreams = 1
+		switch {
+		case recentMbps >= 250:
+			chunkBytes = 88_000_000
+		case recentMbps >= 100:
+			chunkBytes = 64_000_000
+		case recentMbps >= 25:
+			chunkBytes = 40_000_000
+		default:
+			chunkBytes = 16_000_000
+		}
+		return targetStreams, chunkBytes
 	}
-	setSpeedBrowserHeaders(req)
-	resp, err := cl.Do(req)
-	if err != nil || resp == nil {
-		return fallback
-	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fallback
+	switch {
+	case recentMbps >= 300:
+		targetStreams = 16
+		chunkBytes = 88_000_000
+	case recentMbps >= 140:
+		targetStreams = 10
+		chunkBytes = 64_000_000
+	case recentMbps >= 25:
+		targetStreams = 6
+		chunkBytes = 40_000_000
+	default:
+		targetStreams = 4
+		chunkBytes = 16_000_000
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
-	if err != nil {
-		return fallback
+
+	// BDP compensation: higher-RTT regional/international POPs benefit from extra parallel flows.
+	if rttMs >= 35.0 && targetStreams < 16 {
+		targetStreams += 2
+		if targetStreams > 16 {
+			targetStreams = 16
+		}
 	}
-	meta, ok := parseSpeedMetaJSON(body)
-	if !ok {
-		return fallback
+	return targetStreams, chunkBytes
+}
+
+func computeUploadPlan(recentMbps, rttMs float64, mode string) (targetStreams int, chunkBytes int64, sockWriteBuf int) {
+	if mode == "single" {
+		targetStreams = 1
+		switch {
+		case recentMbps >= 200:
+			return 1, 20 * 1024 * 1024, 384 * 1024
+		case recentMbps >= 80:
+			return 1, 12 * 1024 * 1024, 192 * 1024
+		case recentMbps >= 25:
+			return 1, 6 * 1024 * 1024, 96 * 1024
+		case recentMbps >= 8:
+			return 1, 2 * 1024 * 1024, 64 * 1024
+		default:
+			return 1, 1 * 1024 * 1024, 64 * 1024
+		}
 	}
-	return meta
+
+	switch {
+	case recentMbps >= 250:
+		targetStreams = 16
+		chunkBytes = 24 * 1024 * 1024
+		sockWriteBuf = 384 * 1024
+	case recentMbps >= 110:
+		targetStreams = 12
+		chunkBytes = 16 * 1024 * 1024
+		sockWriteBuf = 192 * 1024
+	case recentMbps >= 45:
+		targetStreams = 8
+		chunkBytes = 10 * 1024 * 1024
+		sockWriteBuf = 64 * 1024
+	case recentMbps >= 15:
+		targetStreams = 6
+		chunkBytes = 4 * 1024 * 1024
+		sockWriteBuf = 64 * 1024
+	case recentMbps >= 5:
+		targetStreams = 6
+		chunkBytes = 1536 * 1024
+		sockWriteBuf = 64 * 1024
+	default:
+		targetStreams = 4
+		chunkBytes = 512 * 1024
+		sockWriteBuf = 64 * 1024
+	}
+
+	if rttMs >= 35.0 {
+		if targetStreams < 16 {
+			targetStreams += 2
+			if targetStreams > 16 {
+				targetStreams = 16
+			}
+		}
+		if recentMbps >= 25 && sockWriteBuf < 128*1024 {
+			sockWriteBuf = 128 * 1024
+		}
+	}
+	return targetStreams, chunkBytes, sockWriteBuf
 }
 
 type rollingDeltaSample struct {
@@ -725,8 +1114,8 @@ func (st *speedWindowTracker) update(now time.Time, totalPhaseBytes int64) (live
 			st.sliceStartByt = totalPhaseBytes
 			st.nextSliceAt = now.Add(st.sliceDur)
 		}
-		if rollingMbps > st.peakMbps {
-			st.peakMbps = rollingMbps
+		if st.emaMbps > st.peakMbps {
+			st.peakMbps = st.emaMbps
 		}
 		missed := 0
 		sliceCursor := st.nextSliceAt
@@ -802,13 +1191,19 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 		uploadMbps        float64
 		peakUploadMbps    float64
 		finalUploadMbps   float64
-		pingMs            float64
-		bestPingMs        float64
-		maxPingMs         float64
-		loadedPingMs      float64
-		downloadLatencyMs float64
-		uploadLatencyMs   float64
-		jitterMs          float64
+		pingMs             float64
+		bestPingMs         float64
+		maxPingMs          float64
+		latencyP50Ms       float64
+		latencyP95Ms       float64
+		latencyP99Ms       float64
+		loadedPingMs       float64
+		downloadLatencyMs  float64
+		downloadLatencyP95 float64
+		uploadLatencyMs    float64
+		uploadLatencyP95   float64
+		bufferbloatGrade   string
+		jitterMs           float64
 		packetLoss        float64
 		meta              = SpeedMeta{ServerName: "Cloudflare Anycast CDN", ServerLocation: "Global Edge Network"}
 		downHistory       = make([]float64, 0, 90)
@@ -864,13 +1259,19 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 			UploadMbps:        round1(uploadMbps),
 			PeakUploadMbps:    round1(peakUploadMbps),
 			FinalUploadMbps:   round1(finalUploadMbps),
-			PingMs:            round1(pingMs),
-			BestPingMs:        round1(bestPingMs),
-			MaxPingMs:         round1(maxPingMs),
-			LoadedPingMs:      round1(loadedPingMs),
-			DownloadLatencyMs: round1(downloadLatencyMs),
-			UploadLatencyMs:   round1(uploadLatencyMs),
-			JitterMs:          round1(jitterMs),
+			PingMs:             round1(pingMs),
+			BestPingMs:         round1(bestPingMs),
+			MaxPingMs:          round1(maxPingMs),
+			LatencyP50Ms:       round1(latencyP50Ms),
+			LatencyP95Ms:       round1(latencyP95Ms),
+			LatencyP99Ms:       round1(latencyP99Ms),
+			LoadedPingMs:       round1(loadedPingMs),
+			DownloadLatencyMs:  round1(downloadLatencyMs),
+			DownloadLatencyP95: round1(downloadLatencyP95),
+			UploadLatencyMs:    round1(uploadLatencyMs),
+			UploadLatencyP95:   round1(uploadLatencyP95),
+			BufferbloatGrade:   bufferbloatGrade,
+			JitterMs:           round1(jitterMs),
 			PacketLoss:        round1(packetLoss),
 			TotalMB:           round1(float64(totalBytes.Load()) / (1024.0 * 1024.0)),
 			ClientIP:          meta.ClientIP,
@@ -944,21 +1345,28 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 		wg.Wait()
 	}
 
-	// Security preflight client to detect captive portals or unsafe redirects on speed.cloudflare.com
-	pingTracker := &connTracker{}
-	defer pingTracker.closeAll()
-	pingTr, pingClient := newSpeedHTTP1Client(8*1024, 8*1024, pingTracker)
-	defer pingTr.CloseIdleConnections()
-
-	checkCaptivePortalOrRedirect := func(probeCtx context.Context) bool {
+	// Security preflight helper to detect captive portals or unsafe redirects on speed.cloudflare.com
+	checkCaptivePortalOrRedirect := func(probeCtx context.Context, chosen speedEndpointCandidate) bool {
 		pCtx, cancel := context.WithTimeout(probeCtx, 1500*time.Millisecond)
 		defer cancel()
+
+		pTracker := &connTracker{}
+		defer pTracker.closeAll()
+		pTr, pClient := newPinnedSpeedHTTP1Client(speedClientConfig{
+			readBuf:    8 * 1024,
+			writeBuf:   8 * 1024,
+			tracker:    pTracker,
+			network:    chosen.network,
+			pinnedAddr: chosen.remoteAddr,
+		})
+		defer pTr.CloseIdleConnections()
+
 		req, err := http.NewRequestWithContext(pCtx, http.MethodGet, "https://speed.cloudflare.com/__down?bytes=0", nil)
 		if err != nil {
 			return false
 		}
 		setSpeedBrowserHeaders(req)
-		resp, doErr := pingClient.Do(req)
+		resp, doErr := pClient.Do(req)
 		if doErr != nil {
 			return strings.Contains(doErr.Error(), "blocked unsafe or off-origin redirect")
 		}
@@ -975,9 +1383,62 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 		return false
 	}
 
-	// Pure 1-RTT TCP SYN->SYN-ACK probe to Cloudflare Anycast Edge (1.1.1.1:443)
-	// Avoids DNS lookup, TLS handshake, and Cloudflare Worker cold-start latency spikes.
+	// ------------------------------------------------------------------
+	// STAGE 1: Fastest Stack/POP Discovery (IPv4 vs IPv6) + Idle Ping
+	// ------------------------------------------------------------------
+	phase = "ping"
+	progress = 2
+
+	var chosen speedEndpointCandidate
+	var preflightWg sync.WaitGroup
+	preflightWg.Add(2)
+	go func() {
+		defer preflightWg.Done()
+		probeEdges()
+	}()
+	go func() {
+		defer preflightWg.Done()
+		chosen = selectOptimalSpeedEndpoint(ctx)
+	}()
+	preflightWg.Wait()
+
+	if ctx.Err() != nil {
+		return
+	}
+	if chosen.redirected || checkCaptivePortalOrRedirect(ctx, chosen) {
+		failWithError("Blocked unsafe redirect or captive portal while connecting to benchmark server.")
+		return
+	}
+	if chosen.ok {
+		mu.Lock()
+		meta = chosen.meta
+		mu.Unlock()
+	}
+	emit()
+
+	// Pure 1-RTT TCP SYN->SYN-ACK probe locked to the exact selected benchmark IP
+	// (avoids measuring a different POP than the download/upload streams).
 	probeDirectTCPRTT := func(probeCtx context.Context) (float64, bool) {
+		if chosen.remoteAddr != "" {
+			dialNet := chosen.network
+			if dialNet == "" {
+				dialNet = "tcp"
+			}
+			pCtx, cancel := context.WithTimeout(probeCtx, 900*time.Millisecond)
+			dialer := &net.Dialer{Timeout: 850 * time.Millisecond}
+			t0 := time.Now()
+			conn, err := dialer.DialContext(pCtx, dialNet, chosen.remoteAddr)
+			cancel()
+			if err == nil {
+				_ = conn.Close()
+				rtt := float64(time.Since(t0).Microseconds()) / 1000.0
+				if rtt > 0 {
+					return rtt, true
+				}
+			}
+			return 0, false
+		}
+
 		targets := [2]string{"1.1.1.1:443", "8.8.8.8:443"}
 		for _, ep := range targets {
 			pCtx, cancel := context.WithTimeout(probeCtx, 900*time.Millisecond)
@@ -996,55 +1457,17 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 		return 0, false
 	}
 
-	// ------------------------------------------------------------------
-	// STAGE 1: Server Metadata Discovery + Idle Ping / Jitter (~2.6s)
-	// ------------------------------------------------------------------
-	phase = "ping"
-	progress = 2
-
-	var metaWg sync.WaitGroup
-	metaWg.Add(1)
-	go func() {
-		defer metaWg.Done()
-		fetched := FetchSpeedMeta(ctx)
-		mu.Lock()
-		meta = fetched
-		mu.Unlock()
-	}()
-
-	var preflightWg sync.WaitGroup
-	var redirectBlocked atomic.Bool
-	preflightWg.Add(2)
-	go func() {
-		defer preflightWg.Done()
-		probeEdges()
-	}()
-	go func() {
-		defer preflightWg.Done()
-		if checkCaptivePortalOrRedirect(ctx) {
-			redirectBlocked.Store(true)
-		}
-	}()
-	preflightWg.Wait()
-
-	if redirectBlocked.Load() {
-		metaWg.Wait()
-		failWithError("Blocked unsafe redirect or captive portal while connecting to benchmark server.")
-		return
-	}
-	emit()
-
 	// Measure Idle Ping on a clean, unloaded link without concurrent background bursts
-	idleSamples := make([]float64, 0, 12)
+	idleSamples := make([]float64, 0, 14)
 	idleAttempts := 0
 	idleFailures := 0
-	const totalIdleProbes = 10
+	const totalIdleProbes = 12
 
 	for r := 0; r < totalIdleProbes; r++ {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(180 * time.Millisecond):
+		case <-time.After(150 * time.Millisecond):
 		}
 
 		idleAttempts++
@@ -1058,6 +1481,9 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 			bestPingMs = best
 			maxPingMs = mx
 			jitterMs = jit
+			latencyP50Ms = computePercentile(idleSamples, 50)
+			latencyP95Ms = computePercentile(idleSamples, 95)
+			latencyP99Ms = computePercentile(idleSamples, 99)
 			pingHistory = append(pingHistory, round1(rtt))
 			if len(pingHistory) > 40 {
 				pingHistory = pingHistory[len(pingHistory)-40:]
@@ -1072,8 +1498,6 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 		mu.Unlock()
 		emit()
 	}
-
-	metaWg.Wait()
 
 	onlineEdges := 0
 	mu.Lock()
@@ -1115,11 +1539,17 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 						mu.Lock()
 						loadedSamples = append(loadedSamples, rtt)
 						avgLoaded, _, _, _ := computePingStats(loadedSamples)
+						p95Loaded := computePercentile(loadedSamples, 95)
 						loadedPingMs = avgLoaded
 						if isUpload {
 							uploadLatencyMs = avgLoaded
+							uploadLatencyP95 = p95Loaded
 						} else {
 							downloadLatencyMs = avgLoaded
+							downloadLatencyP95 = p95Loaded
+						}
+						if grade := ComputeBufferbloatGrade(pingMs, downloadLatencyMs, uploadLatencyMs); grade != "" {
+							bufferbloatGrade = grade
 						}
 						mu.Unlock()
 					}()
@@ -1148,7 +1578,7 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 	}()
 
 	var downChunkBytes atomic.Int64
-	downChunkBytes.Store(4_000_000) // Start at 4MB during initial calibration
+	downChunkBytes.Store(16_000_000) // Start large enough to prevent premature EOF gaps during initial calibration
 
 	var downWindowBytes atomic.Int64
 	var downWg sync.WaitGroup
@@ -1158,7 +1588,13 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 		downWg.Add(1)
 		go func(id int, wDone *sync.WaitGroup) {
 			defer downWg.Done()
-			tr, cl := newSpeedHTTP1Client(256*1024, 32*1024, downTracker)
+			tr, cl := newPinnedSpeedHTTP1Client(speedClientConfig{
+				readBuf:    256 * 1024,
+				writeBuf:   32 * 1024,
+				tracker:    downTracker,
+				network:    chosen.network,
+				pinnedAddr: chosen.remoteAddr,
+			})
 			defer tr.CloseIdleConnections()
 
 			wCtx, wCancel := context.WithTimeout(downCtx, 1200*time.Millisecond)
@@ -1185,7 +1621,8 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 			buf := make([]byte, 256*1024)
 			for downCtx.Err() == nil {
 				// Stagger per-worker chunk sizes so keep-alive request turnarounds never align across all streams.
-				chunkSize := downChunkBytes.Load() + int64(id%4)*512*1024
+				baseChunk := downChunkBytes.Load()
+				chunkSize := baseChunk + int64(id%4)*(baseChunk/8)
 				targetURL := fmt.Sprintf("https://speed.cloudflare.com/__down?bytes=%d&w=%d_%d", chunkSize, id, time.Now().UnixNano())
 				req, err := http.NewRequestWithContext(downCtx, http.MethodGet, targetURL, nil)
 				if err != nil {
@@ -1241,9 +1678,9 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 
 	downStart := time.Now()
 	close(downStartGate)
-	const downCalAt = 1200 * time.Millisecond
-	const downCalAt2 = 2000 * time.Millisecond
-	const downWarmup = 2600 * time.Millisecond // Let calibrated streams complete TLS+slow-start before steady slices
+	const downCalAt = 750 * time.Millisecond
+	const downCalAt2 = 1600 * time.Millisecond
+	const downWarmup = 3000 * time.Millisecond // Let calibrated streams stabilize past initial queue overshoot before steady slices
 	const downSteadySlice = 500 * time.Millisecond
 	const downSliceCount = 20 // 20 * 500ms = 10.0s steady window
 	const downTotalDur = downWarmup + downSliceCount*downSteadySlice
@@ -1252,6 +1689,8 @@ func RunLiveSpeedBenchmarkWithMode(ctx context.Context, rawMode string, onUpdate
 	downTicker := time.NewTicker(140 * time.Millisecond)
 	calibratedDown := false
 	calibratedDown2 := false
+	prevCalDownBytes := int64(0)
+	prevCalDownAt := downStart
 	currentDownStreams := initialDownCount
 	emitCounter := 0
 
@@ -1265,21 +1704,14 @@ downLoop:
 			return
 		case now := <-downTicker.C:
 			elapsed := now.Sub(downStart)
-			if mode == "multi" && !calibratedDown && elapsed >= downCalAt {
+			if !calibratedDown && elapsed >= downCalAt {
 				calibratedDown = true
-				calMbps := (float64(downWindowBytes.Load()) * 8.0) / (elapsed.Seconds() * 1_000_000.0)
-				targetStreams := 4
-				targetChunk := int64(4_000_000)
-				if calMbps >= 300 {
-					targetStreams = 16
-					targetChunk = 24_000_000
-				} else if calMbps >= 140 {
-					targetStreams = 12
-					targetChunk = 20_000_000
-				} else if calMbps >= 25 {
-					targetStreams = 8
-					targetChunk = 10_000_000
-				}
+				curBytes := downWindowBytes.Load()
+				calMbps := computeIntervalMbps(curBytes, elapsed.Seconds())
+				prevCalDownBytes = curBytes
+				prevCalDownAt = now
+
+				targetStreams, targetChunk := computeDownloadPlan(calMbps, chosen.rttMs, mode)
 				downChunkBytes.Store(targetChunk)
 				if targetStreams > currentDownStreams {
 					mu.Lock()
@@ -1290,22 +1722,15 @@ downLoop:
 					}
 					currentDownStreams = targetStreams
 				}
-			} else if mode == "multi" && !calibratedDown2 && elapsed >= downCalAt2 {
+			} else if !calibratedDown2 && elapsed >= downCalAt2 {
 				calibratedDown2 = true
-				calMbps := (float64(downWindowBytes.Load()) * 8.0) / (elapsed.Seconds() * 1_000_000.0)
-				targetStreams := currentDownStreams
-				targetChunk := downChunkBytes.Load()
-				if calMbps >= 450 && targetStreams < 16 {
-					targetStreams = 16
-					targetChunk = 24_000_000
-				} else if calMbps >= 150 && targetStreams < 12 {
-					targetStreams = 12
-					targetChunk = 20_000_000
-				} else if calMbps >= 25 && targetStreams < 8 {
-					targetStreams = 8
-					targetChunk = 10_000_000
+				curBytes := downWindowBytes.Load()
+				instMbps := computeIntervalMbps(curBytes-prevCalDownBytes, now.Sub(prevCalDownAt).Seconds())
+				cumMbps := computeIntervalMbps(curBytes, elapsed.Seconds())
+				targetStreams, targetChunk := computeDownloadPlan(math.Max(instMbps, cumMbps), chosen.rttMs, mode)
+				if prevChunk := downChunkBytes.Load(); targetChunk > prevChunk {
+					downChunkBytes.Store(targetChunk)
 				}
-				downChunkBytes.Store(targetChunk)
 				if targetStreams > currentDownStreams {
 					mu.Lock()
 					activeStreams = targetStreams
@@ -1314,14 +1739,6 @@ downLoop:
 						spawnDownloadWorker(s, nil, nil)
 					}
 					currentDownStreams = targetStreams
-				}
-			} else if mode == "single" && !calibratedDown && elapsed >= downCalAt {
-				calibratedDown = true
-				calMbps := (float64(downWindowBytes.Load()) * 8.0) / (elapsed.Seconds() * 1_000_000.0)
-				if calMbps >= 100 {
-					downChunkBytes.Store(16_000_000)
-				} else if calMbps >= 25 {
-					downChunkBytes.Store(8_000_000)
 				}
 			}
 
@@ -1364,7 +1781,7 @@ downLoop:
 		return
 	}
 
-	finalDownloadMbps = resolveFinalPeakSpeed(downWindow.peakMbps, downWindow.emaMbps, downWindow.slices)
+	finalDownloadMbps = resolveSustainedSpeedScore(downWindow.peakMbps, downWindow.emaMbps, downWindow.slices)
 	mu.Lock()
 	downloadMbps = finalDownloadMbps
 	if peakDownloadMbps < finalDownloadMbps {
@@ -1403,7 +1820,9 @@ downLoop:
 	}()
 
 	var upChunkSize atomic.Int64
-	upChunkSize.Store(1 * 1024 * 1024) // Start at 1 MB so high-RTT fiber links calibrate without stalling
+	upChunkSize.Store(1 * 1024 * 1024) // Start at 1 MB so slow and fast links alike complete warm chunks cleanly
+	var upSockWriteBuf atomic.Int32
+	upSockWriteBuf.Store(64 * 1024) // Bounded SO_SNDBUF suppresses multi-megabyte OS buffer spikes
 
 	var upWindowBytes atomic.Int64
 	var upWg sync.WaitGroup
@@ -1413,7 +1832,14 @@ downLoop:
 		upWg.Add(1)
 		go func(id int, wDone *sync.WaitGroup) {
 			defer upWg.Done()
-			tr, cl := newSpeedHTTP1Client(32*1024, 32*1024, upTracker)
+			tr, cl := newPinnedSpeedHTTP1Client(speedClientConfig{
+				readBuf:      32 * 1024,
+				writeBuf:     32 * 1024,
+				tracker:      upTracker,
+				network:      chosen.network,
+				pinnedAddr:   chosen.remoteAddr,
+				sockWriteBuf: int(upSockWriteBuf.Load()),
+			})
 			defer tr.CloseIdleConnections()
 
 			wCtx, wCancel := context.WithTimeout(upCtx, 1200*time.Millisecond)
@@ -1447,11 +1873,11 @@ downLoop:
 
 			for upCtx.Err() == nil {
 				baseChunk := upChunkSize.Load()
-				stagger := int64(id%4) * 512 * 1024
-				if baseChunk < 1024*1024 {
-					stagger = int64(id%4) * 128 * 1024
+				staggerStep := baseChunk / 8
+				if staggerStep < 128*1024 {
+					staggerStep = 128 * 1024
 				}
-				chunkSz := baseChunk + stagger
+				chunkSz := baseChunk + int64(id%4)*staggerStep
 				reader := &meteredUploadReader{
 					ctx:     upCtx,
 					counter: &upWindowBytes,
@@ -1498,8 +1924,8 @@ downLoop:
 
 	upStart := time.Now()
 	close(upStartGate)
-	const upCalAt = 1200 * time.Millisecond
-	const upCalAt2 = 2000 * time.Millisecond
+	const upCalAt = 950 * time.Millisecond
+	const upCalAt2 = 1800 * time.Millisecond
 	const upWarmup = 2800 * time.Millisecond
 	const upSteadySlice = 500 * time.Millisecond
 	const upSliceCount = 20 // 20 * 500ms = 10.0s steady window
@@ -1509,6 +1935,8 @@ downLoop:
 	upTicker := time.NewTicker(140 * time.Millisecond)
 	calibratedUp := false
 	calibratedUp2 := false
+	prevCalUpBytes := int64(0)
+	prevCalUpAt := upStart
 	currentUpStreams := initialUpCount
 	emitCounter = 0
 
@@ -1522,25 +1950,17 @@ upLoop:
 			return
 		case now := <-upTicker.C:
 			elapsed := now.Sub(upStart)
-			if mode == "multi" && !calibratedUp && elapsed >= upCalAt {
+			if !calibratedUp && elapsed >= upCalAt {
 				calibratedUp = true
-				calUpMbps := (float64(upWindowBytes.Load()) * 8.0) / (elapsed.Seconds() * 1_000_000.0)
-				targetUp := 4
-				targetChunk := int64(512 * 1024)
-				if calUpMbps >= 140 {
-					targetUp = 12
-					targetChunk = 8 * 1024 * 1024
-				} else if calUpMbps >= 50 {
-					targetUp = 10
-					targetChunk = 6 * 1024 * 1024
-				} else if calUpMbps >= 10 {
-					targetUp = 8
-					targetChunk = 4 * 1024 * 1024
-				} else if calUpMbps >= 3 {
-					targetUp = 6
-					targetChunk = 2 * 1024 * 1024
-				}
+				curBytes := upWindowBytes.Load()
+				calUpMbps := computeIntervalMbps(curBytes, elapsed.Seconds())
+				prevCalUpBytes = curBytes
+				prevCalUpAt = now
+
+				targetUp, targetChunk, targetSockBuf := computeUploadPlan(calUpMbps, chosen.rttMs, mode)
 				upChunkSize.Store(targetChunk)
+				upSockWriteBuf.Store(int32(targetSockBuf))
+				upTracker.setWriteBufferAll(targetSockBuf)
 				if targetUp > currentUpStreams {
 					mu.Lock()
 					activeStreams = targetUp
@@ -1550,19 +1970,19 @@ upLoop:
 					}
 					currentUpStreams = targetUp
 				}
-			} else if mode == "multi" && !calibratedUp2 && elapsed >= upCalAt2 {
+			} else if !calibratedUp2 && elapsed >= upCalAt2 {
 				calibratedUp2 = true
-				calUpMbps := (float64(upWindowBytes.Load()) * 8.0) / (elapsed.Seconds() * 1_000_000.0)
-				targetUp := currentUpStreams
-				targetChunk := upChunkSize.Load()
-				if calUpMbps >= 140 && targetUp < 12 {
-					targetUp = 12
-					targetChunk = 8 * 1024 * 1024
-				} else if calUpMbps >= 50 && targetUp < 10 {
-					targetUp = 10
-					targetChunk = 6 * 1024 * 1024
+				curBytes := upWindowBytes.Load()
+				instMbps := computeIntervalMbps(curBytes-prevCalUpBytes, now.Sub(prevCalUpAt).Seconds())
+				cumMbps := computeIntervalMbps(curBytes, elapsed.Seconds())
+				targetUp, targetChunk, targetSockBuf := computeUploadPlan(math.Max(instMbps, cumMbps), chosen.rttMs, mode)
+				if prevChunk := upChunkSize.Load(); targetChunk > prevChunk {
+					upChunkSize.Store(targetChunk)
 				}
-				upChunkSize.Store(targetChunk)
+				if prevBuf := int(upSockWriteBuf.Load()); targetSockBuf > prevBuf {
+					upSockWriteBuf.Store(int32(targetSockBuf))
+					upTracker.setWriteBufferAll(targetSockBuf)
+				}
 				if targetUp > currentUpStreams {
 					mu.Lock()
 					activeStreams = targetUp
@@ -1571,16 +1991,6 @@ upLoop:
 						spawnUploadWorker(s, nil, nil)
 					}
 					currentUpStreams = targetUp
-				}
-			} else if mode == "single" && !calibratedUp && elapsed >= upCalAt {
-				calibratedUp = true
-				calUpMbps := (float64(upWindowBytes.Load()) * 8.0) / (elapsed.Seconds() * 1_000_000.0)
-				if calUpMbps >= 60 {
-					upChunkSize.Store(8 * 1024 * 1024)
-				} else if calUpMbps >= 10 {
-					upChunkSize.Store(4 * 1024 * 1024)
-				} else if calUpMbps >= 3 {
-					upChunkSize.Store(2 * 1024 * 1024)
 				}
 			}
 
@@ -1618,7 +2028,7 @@ upLoop:
 	case <-time.After(700 * time.Millisecond):
 	}
 
-	finalUploadMbps = resolveFinalPeakSpeed(upWindow.peakMbps, upWindow.emaMbps, upWindow.slices)
+	finalUploadMbps = resolveSustainedSpeedScore(upWindow.peakMbps, upWindow.emaMbps, upWindow.slices)
 	mu.Lock()
 	uploadMbps = finalUploadMbps
 	if peakUploadMbps < finalUploadMbps {
@@ -1627,6 +2037,13 @@ upLoop:
 	progress = 98
 	mu.Unlock()
 	emit()
+
+	// Brief breather so upload buffers drain before refreshing Anycast Edge Matrix latencies
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(250 * time.Millisecond):
+	}
 
 	// Final Anycast Edge Matrix refresh
 	probeEdges()
@@ -1720,17 +2137,20 @@ func computePingStats(samples []float64) (avg, best, worst, jitter float64) {
 	return avg, best, worst, jitter
 }
 
-// resolveFinalPeakSpeed selects the highest sustained speed reached during steady measurement
-// so final Download/Upload scores reflect the top verified speed reached in the test.
-func resolveFinalPeakSpeed(peakMbps, emaMbps float64, slices []float64) float64 {
-	best := peakMbps
-	if emaMbps > best {
-		best = emaMbps
+// resolveSustainedSpeedScore computes the certified sustained throughput using the middle-60% trimmed
+// slice average (discarding slowest 30% and fastest 10% steady slices) to match report methodology,
+// falling back cleanly to EMA and peak only if insufficient slices exist.
+func resolveSustainedSpeedScore(peakMbps, emaMbps float64, slices []float64) float64 {
+	if score := computeOoklaScore(slices); score > 0 {
+		return score
 	}
-	if best > 0 {
-		return round1(best)
+	if emaMbps > 0 {
+		return round1(emaMbps)
 	}
-	return computeOoklaScore(slices)
+	if peakMbps > 0 {
+		return round1(peakMbps)
+	}
+	return 0
 }
 
 // computeOoklaScore computes the sustained speed score following Ookla's single-test slice whitepaper:

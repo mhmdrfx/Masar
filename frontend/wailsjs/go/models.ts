@@ -60,6 +60,8 @@ export namespace mtr {
 	export class HopStat {
 	    hop: number;
 	    ip: string;
+	    altIps?: string[];
+	    routeChanges?: number;
 	    hostname: string;
 	    location: string;
 	    asn: string;
@@ -71,6 +73,7 @@ export namespace mtr {
 	    bestMs: number;
 	    worstMs: number;
 	    jitterMs: number;
+	    mos?: number;
 	    history: number[];
 	    reachedDest: boolean;
 	
@@ -82,6 +85,8 @@ export namespace mtr {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.hop = source["hop"];
 	        this.ip = source["ip"];
+	        this.altIps = source["altIps"];
+	        this.routeChanges = source["routeChanges"];
 	        this.hostname = source["hostname"];
 	        this.location = source["location"];
 	        this.asn = source["asn"];
@@ -93,6 +98,7 @@ export namespace mtr {
 	        this.bestMs = source["bestMs"];
 	        this.worstMs = source["worstMs"];
 	        this.jitterMs = source["jitterMs"];
+	        this.mos = source["mos"];
 	        this.history = source["history"];
 	        this.reachedDest = source["reachedDest"];
 	    }
@@ -101,6 +107,10 @@ export namespace mtr {
 	    running: boolean;
 	    target: string;
 	    resolvedIp: string;
+	    protocol?: string;
+	    ipVersion?: number;
+	    mosScore?: number;
+	    mosGrade?: string;
 	    updatedAt: string;
 	    hops: HopStat[];
 	    health: HealthReport;
@@ -114,6 +124,10 @@ export namespace mtr {
 	        this.running = source["running"];
 	        this.target = source["target"];
 	        this.resolvedIp = source["resolvedIp"];
+	        this.protocol = source["protocol"];
+	        this.ipVersion = source["ipVersion"];
+	        this.mosScore = source["mosScore"];
+	        this.mosGrade = source["mosGrade"];
 	        this.updatedAt = source["updatedAt"];
 	        this.hops = this.convertValues(source["hops"], HopStat);
 	        this.health = this.convertValues(source["health"], HealthReport);
@@ -145,6 +159,9 @@ export namespace nettools {
 	export class DNSRecordItem {
 	    type: string;
 	    value: string;
+	    ttl?: number;
+	    latencyMs?: number;
+	    dnssec?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new DNSRecordItem(source);
@@ -154,10 +171,16 @@ export namespace nettools {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];
 	        this.value = source["value"];
+	        this.ttl = source["ttl"];
+	        this.latencyMs = source["latencyMs"];
+	        this.dnssec = source["dnssec"];
 	    }
 	}
 	export class DNSReport {
 	    target: string;
+	    resolver?: string;
+	    useDoH?: boolean;
+	    dnssecValidated?: boolean;
 	    queryTimeMs: number;
 	    records: DNSRecordItem[];
 	    checkedAt: string;
@@ -169,6 +192,9 @@ export namespace nettools {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.target = source["target"];
+	        this.resolver = source["resolver"];
+	        this.useDoH = source["useDoH"];
+	        this.dnssecValidated = source["dnssecValidated"];
 	        this.queryTimeMs = source["queryTimeMs"];
 	        this.records = this.convertValues(source["records"], DNSRecordItem);
 	        this.checkedAt = source["checkedAt"];
@@ -312,9 +338,15 @@ export namespace nettools {
 	    pingMs: number;
 	    bestPingMs: number;
 	    maxPingMs: number;
+	    latencyP50Ms?: number;
+	    latencyP95Ms?: number;
+	    latencyP99Ms?: number;
 	    loadedPingMs: number;
 	    downloadLatencyMs: number;
+	    downloadLatencyP95?: number;
 	    uploadLatencyMs: number;
+	    uploadLatencyP95?: number;
+	    bufferbloatGrade?: string;
 	    jitterMs: number;
 	    packetLoss: number;
 	    totalMB: number;
@@ -352,9 +384,15 @@ export namespace nettools {
 	        this.pingMs = source["pingMs"];
 	        this.bestPingMs = source["bestPingMs"];
 	        this.maxPingMs = source["maxPingMs"];
+	        this.latencyP50Ms = source["latencyP50Ms"];
+	        this.latencyP95Ms = source["latencyP95Ms"];
+	        this.latencyP99Ms = source["latencyP99Ms"];
 	        this.loadedPingMs = source["loadedPingMs"];
 	        this.downloadLatencyMs = source["downloadLatencyMs"];
+	        this.downloadLatencyP95 = source["downloadLatencyP95"];
 	        this.uploadLatencyMs = source["uploadLatencyMs"];
+	        this.uploadLatencyP95 = source["uploadLatencyP95"];
+	        this.bufferbloatGrade = source["bufferbloatGrade"];
 	        this.jitterMs = source["jitterMs"];
 	        this.packetLoss = source["packetLoss"];
 	        this.totalMB = source["totalMB"];
@@ -387,6 +425,46 @@ export namespace nettools {
 		    }
 		    return a;
 		}
+	}
+	export class TLSCertReport {
+	    host: string;
+	    port: number;
+	    protocolVersion: string;
+	    cipherSuite: string;
+	    handshakeMs: number;
+	    subject: string;
+	    issuer: string;
+	    sans: string[];
+	    notBefore: string;
+	    notAfter: string;
+	    daysRemaining: number;
+	    verified: boolean;
+	    verifyError?: string;
+	    chainSubjects: string[];
+	    checkedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TLSCertReport(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.protocolVersion = source["protocolVersion"];
+	        this.cipherSuite = source["cipherSuite"];
+	        this.handshakeMs = source["handshakeMs"];
+	        this.subject = source["subject"];
+	        this.issuer = source["issuer"];
+	        this.sans = source["sans"];
+	        this.notBefore = source["notBefore"];
+	        this.notAfter = source["notAfter"];
+	        this.daysRemaining = source["daysRemaining"];
+	        this.verified = source["verified"];
+	        this.verifyError = source["verifyError"];
+	        this.chainSubjects = source["chainSubjects"];
+	        this.checkedAt = source["checkedAt"];
+	    }
 	}
 
 }

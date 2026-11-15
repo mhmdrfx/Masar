@@ -62,8 +62,13 @@ func (a *App) shutdown(ctx context.Context) {
 	a.speedOpMu.Unlock()
 }
 
-// StartTrace stops any running trace and launches a new real-time MTR session for target.
+// StartTrace stops any running trace and launches a new real-time ICMP MTR session for target.
 func (a *App) StartTrace(target string) error {
+	return a.StartTraceWithMode(target, mtr.ProbeICMP)
+}
+
+// StartTraceWithMode stops any running trace and launches a new real-time MTR session ("icmp", "tcp", or "udp").
+func (a *App) StartTraceWithMode(target string, mode string) error {
 	cleanTarget := strings.TrimSpace(target)
 	if cleanTarget == "" {
 		return errors.New("please enter a valid IPv4 address or hostname")
@@ -79,7 +84,7 @@ func (a *App) StartTrace(target string) error {
 	mySeq := a.traceSeq
 	a.mu.Unlock()
 
-	engine, err := mtr.NewEngine(cleanTarget, func(snap mtr.TraceSnapshot) {
+	engine, err := mtr.NewEngineWithMode(cleanTarget, mode, func(snap mtr.TraceSnapshot) {
 		a.mu.Lock()
 		if a.traceSeq != mySeq || !a.running {
 			a.mu.Unlock()
@@ -499,9 +504,24 @@ func (a *App) RunDNSLookup(target string) (nettools.DNSReport, error) {
 	return nettools.LookupDNS(target)
 }
 
+// RunDNSLookupWithOptions resolves DNS records using System resolver, public upstream IP, or DoH (RFC 8484).
+func (a *App) RunDNSLookupWithOptions(target string, resolver string, useDoH bool) (nettools.DNSReport, error) {
+	return nettools.LookupDNSWithOptions(target, resolver, useDoH)
+}
+
 // RunPortScan scans common or custom TCP ports on a target host.
 func (a *App) RunPortScan(host string, ports []int) (nettools.PortScanReport, error) {
 	return nettools.ScanPorts(host, ports)
+}
+
+// RunPortScanSpec scans TCP ports parsed from a preset ("common", "web", "database", "remote") or custom range ("22,80,8000-8010").
+func (a *App) RunPortScanSpec(host string, portSpec string) (nettools.PortScanReport, error) {
+	return nettools.ScanPortsSpec(host, portSpec)
+}
+
+// RunTLSInspect performs a live TLS handshake against host:port and inspects certificate chain & expiry.
+func (a *App) RunTLSInspect(host string, port int) (nettools.TLSCertReport, error) {
+	return nettools.InspectTLS(host, port)
 }
 
 // RunSpeedBenchmark runs a one-shot speed benchmark for backward compatibility.

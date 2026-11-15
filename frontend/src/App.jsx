@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useId } from "react";
+import React, { Suspense, useState, useEffect, useRef, useId } from "react";
 import {
   ExportToolbarCapsule,
-  ReportStudioModal,
+  buildBrowserCSVReport,
   buildBrowserDetailedReport,
+  buildBrowserHTMLReport,
 } from "./ReportStudio.jsx";
 import {
   UpdateNotifier,
@@ -16,6 +17,10 @@ import {
   GoDataLoader,
   MorphLabel,
 } from "./motion/MotionPrimitives.jsx";
+
+const ReportStudioModal = React.lazy(() => import("./ReportStudioModal.jsx"));
+const MtrTimelineCanvas = React.lazy(() => import("./components/MtrTimelineCanvas.jsx"));
+const TlsInspectorCard = React.lazy(() => import("./components/TlsInspectorCard.jsx"));
 
 const PRESETS = [
   { labelEn: "Google DNS", labelAr: "خادم جوجل", value: "8.8.8.8" },
@@ -99,6 +104,7 @@ const I18N = {
     portOpenCount: "Open Ports",
     portDuration: "Scan Duration",
     stateOpen: "OPEN",
+    stateFiltered: "FILTERED",
     stateClosed: "CLOSED",
     speedTitle: "Speedtest • Bandwidth & Edge Latency",
     speedDesc: "Ookla-standard calibrated test (Idle/Loaded Ping, Adaptive HTTP/1.1 TCP Streams, 20-Slice Trimmed Mean).",
@@ -262,6 +268,7 @@ const I18N = {
     portOpenCount: "المنافذ المفتوحة",
     portDuration: "مدة الفحص",
     stateOpen: "مفتوح",
+    stateFiltered: "محجوب",
     stateClosed: "مغلق",
     speedTitle: "قياس السرعة الاحترافي • Speedtest",
     speedDesc: "فحص تكيّفي مستقر بمعايير Ookla Speedtest (الاستجابة تحت الضغط، قنوات TCP مستقلة، ومتوسط 20 شريحة مشذّب).",
@@ -1066,7 +1073,7 @@ function MasarStartupSplash({
 
           {/* 4-Node Network Topology Pipeline (Clean Opaque Cards without Bleeding Line) */}
           <div className="mt-3.5 pt-3 border-t border-slate-500/15">
-            <div className="grid grid-cols-4 gap-2 text-[10px] font-mono">
+            <div className="grid grid-cols-4 gap-2 text-[10px]">
               {nodes.map((node, idx) => {
                 const ready = progress >= node.threshold;
                 const active =
@@ -1205,7 +1212,7 @@ function MasarStartupSplash({
 }
 
 /* Miniature Visual Preview Screenshot of Masar UI (Dark Mode vs White Mode) */
-function ThemePreviewMiniUI({ mode = "dark" }) {
+function ThemePreviewMiniUI({ mode = "dark", versionDisplay = "v1.0.4" }) {
   const isDark = mode === "dark";
   return (
     <div
@@ -1243,7 +1250,7 @@ function ThemePreviewMiniUI({ mode = "dark" }) {
             }}
             className="text-[8px] px-1 rounded font-mono border"
           >
-            v1.0.4
+            {versionDisplay}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -1447,7 +1454,7 @@ function TabIcon({ id, active }) {
   );
 }
 
-function LatencySparkline({
+const LatencySparkline = React.memo(function LatencySparkline({
   history = [],
   lossPercent = 0,
   width = 104,
@@ -1486,6 +1493,10 @@ function LatencySparkline({
   const fillColor =
     colorOverride === "#38bdf8"
       ? "rgba(56,189,248,0.16)"
+      : colorOverride === "#0284c7"
+      ? "rgba(2,132,199,0.16)"
+      : colorOverride === "#059669"
+      ? "rgba(5,150,105,0.15)"
       : lossPercent > 5.0
       ? "rgba(239,68,68,0.16)"
       : lossPercent > 2.0
@@ -1517,9 +1528,9 @@ function LatencySparkline({
       <circle cx={lastPt[0]} cy={lastPt[1]} r="2.2" fill={strokeColor} />
     </svg>
   );
-}
+});
 
-function HealthRadialGauge({
+const HealthRadialGauge = React.memo(function HealthRadialGauge({
   score = 100,
   severity = "idle",
   unitLabel = "SCORE",
@@ -1595,7 +1606,7 @@ function HealthRadialGauge({
       </div>
     </div>
   );
-}
+});
 
 function ThroughputArcMeter({
   value = 0,
@@ -1979,11 +1990,14 @@ function SpeedtestBigGauge({
       {/* Bottom Crescent: Phase Badge + Live Stability Curve */}
       <div className="-mt-4 flex flex-col items-center gap-2">
         <span
-          className="text-[11px] font-bold px-3.5 py-1 rounded-full tracking-wide shadow-sm"
+          className={`text-xs font-extrabold px-3.5 py-1 rounded-full shadow-sm ${
+            lang === "ar" ? "font-arabic" : "tracking-wide"
+          }`}
           style={{
-            backgroundColor: `${color}1f`,
+            backgroundColor: isLight ? `${color}1a` : `${color}24`,
             color,
-            border: `1px solid ${color}44`,
+            border: `1px solid ${color}55`,
+            boxShadow: isLight ? "none" : `0 0 16px -4px ${color}50`,
           }}
         >
           {phaseBadge}
@@ -1999,7 +2013,7 @@ function SpeedtestBigGauge({
             />
           ) : (
             <div className="w-[168px] h-[26px] flex items-center justify-center">
-              <span className="text-[10px] font-mono text-slate-500">
+              <span className="text-[11px] font-medium text-slate-300 masar-text-glow-sky">
                 {isPing
                   ? lang === "ar"
                     ? "جاري معايرة زمن المسار..."
@@ -2172,9 +2186,15 @@ function buildSimulatedSpeedSnapshot(prev, tick, mode = "multi") {
     pingMs: pingVal,
     bestPingMs: 9.8,
     maxPingMs: 12.4,
+    latencyP50Ms: pingVal,
+    latencyP95Ms: +(pingVal * 1.15).toFixed(1),
+    latencyP99Ms: +(pingVal * 1.24).toFixed(1),
     loadedPingMs: loadedPing || 14.8,
     downloadLatencyMs: downLatency || (phase === "upload" || completed ? 14.1 : 0),
+    downloadLatencyP95: downLatency ? +(downLatency * 1.18).toFixed(1) : (phase === "upload" || completed ? 16.6 : 0),
     uploadLatencyMs: upLatency || (completed ? 16.4 : 0),
+    uploadLatencyP95: upLatency ? +(upLatency * 1.18).toFixed(1) : (completed ? 19.3 : 0),
+    bufferbloatGrade: downLatency || upLatency || completed ? "A+" : "",
     jitterMs: jitterVal,
     packetLoss: 0.0,
     totalMB: +(15.2 + tick * 4.8).toFixed(1),
@@ -2437,7 +2457,7 @@ function buildBrowserSpeedReport(snap, lang = "ar", customVersion = "1.0.4") {
 }
 
 // Browser simulation helper for MTR
-function buildSimulatedSnapshot(target, tick, scenario) {
+function buildSimulatedSnapshot(target, tick, scenario, mode = "icmp") {
   const baseHops = [
     {
       hop: 1,
@@ -2539,10 +2559,17 @@ function buildSimulatedSnapshot(target, tick, scenario) {
     culpritHop: 0,
   };
 
+  const protoLabel =
+    mode === "tcp" ? "TCP-MTR :443" : mode === "udp" ? "UDP-MTR" : "ICMPv4";
+
   return {
     target: target || "8.8.8.8",
     resolvedIp: target || "8.8.8.8",
-    updatedAt: "18:42:15",
+    protocol: protoLabel,
+    ipVersion: 4,
+    mosScore: 4.41,
+    mosGrade: "HD",
+    updatedAt: new Date().toTimeString().slice(0, 8),
     hops,
     health,
     running: true,
@@ -2581,6 +2608,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(() => getUrlQueryParam("settings") === "1");
   const [reportModalOpen, setReportModalOpen] = useState(() => getUrlQueryParam("report") === "1");
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     const q = getUrlQueryParam("tab");
     return q && ["mtr", "dns", "ports", "speed"].includes(q) ? q : "mtr";
@@ -2676,14 +2704,59 @@ export default function App() {
   const simTimerRef = useRef(null);
   const simTickRef = useRef(15);
 
-  // Multi-Tools State
+  // Multi-Tools & Phase 2/3 Engine State
+  const [mtrMode, setMtrMode] = useState("icmp");
+  const [mtrTimeline, setMtrTimeline] = useState([]);
+  const prevRouteSigRef = useRef("");
+
   const [dnsTarget, setDnsTarget] = useState("google.com");
+  const [dnsResolver, setDnsResolver] = useState("system");
+  const [dnsUseDoH, setDnsUseDoH] = useState(false);
   const [dnsLoading, setDnsLoading] = useState(false);
   const [dnsReport, setDnsReport] = useState(null);
 
   const [portHost, setPortHost] = useState("8.8.8.8");
+  const [portSpec, setPortSpec] = useState("common");
   const [portLoading, setPortLoading] = useState(false);
   const [portReport, setPortReport] = useState(null);
+
+  const [tlsPort, setTlsPort] = useState(443);
+  const [tlsLoading, setTlsLoading] = useState(false);
+  const [tlsReport, setTlsReport] = useState(null);
+
+  useEffect(() => {
+    const hopsList = snapshot?.hops || [];
+    if (!snapshot?.updatedAt || snapshot.updatedAt === "--:--:--" || hopsList.length === 0) {
+      return;
+    }
+    let refHop = null;
+    for (let i = hopsList.length - 1; i >= 0; i--) {
+      if (hopsList[i].received > 0) {
+        refHop = hopsList[i];
+        break;
+      }
+    }
+    if (!refHop) return;
+    const routeSig = hopsList.map((h) => `${h.hop}:${h.ip || "*"}:${h.routeChanges || 0}`).join("|");
+    const routeShift = Boolean(prevRouteSigRef.current && prevRouteSigRef.current !== routeSig && snapshot.running);
+    prevRouteSigRef.current = routeSig;
+
+    setMtrTimeline((prev) => {
+      if (prev.length > 0 && prev[prev.length - 1].ts === snapshot.updatedAt && !routeShift) {
+        return prev;
+      }
+      const nextPt = {
+        ts: snapshot.updatedAt,
+        avgMs: Number(refHop.avgMs || 0),
+        worstMs: Number(refHop.worstMs || refHop.lastMs || refHop.avgMs || 0),
+        lossPercent: Number(refHop.lossPercent || 0),
+        mosScore: Number(snapshot.mosScore || refHop.mos || 0),
+        routeShift,
+      };
+      const merged = [...prev, nextPt];
+      return merged.length > 300 ? merged.slice(merged.length - 300) : merged;
+    });
+  }, [snapshot]);
 
   // Continuous Live Speed Benchmark State
   const [speedMode, setSpeedMode] = useState(() => {
@@ -2903,7 +2976,7 @@ export default function App() {
       if (!hasWailsRuntime()) return;
       if (isLight) {
         window.runtime.WindowSetLightTheme?.();
-        window.runtime.WindowSetBackgroundColour?.(220, 227, 236, 255);
+        window.runtime.WindowSetBackgroundColour?.(234, 240, 246, 255);
       } else {
         window.runtime.WindowSetDarkTheme?.();
         window.runtime.WindowSetBackgroundColour?.(11, 15, 25, 255);
@@ -3098,23 +3171,30 @@ export default function App() {
     }
   };
 
-  const startTrace = async (targetHost) => {
+  const startTrace = async (targetHost, modeOverride = "") => {
     const clean = (targetHost || "").trim();
     if (!clean) {
       setErrorBanner("Please enter a valid target IPv4 address or hostname.");
       return;
     }
+    const activeMode = modeOverride || mtrMode;
+    setMtrTimeline([]);
+    prevRouteSigRef.current = "";
 
     if (hasWailsBackend()) {
       try {
         setIsRunning(true);
-        await window.go.main.App.StartTrace(clean);
+        if (window.go.main.App.StartTraceWithMode) {
+          await window.go.main.App.StartTraceWithMode(clean, activeMode);
+        } else {
+          await window.go.main.App.StartTrace(clean);
+        }
       } catch (err) {
         setIsRunning(false);
         setErrorBanner(typeof err === "string" ? err : err?.message || String(err));
       }
     } else {
-      startBrowserSimulation(clean, simScenario);
+      startBrowserSimulation(clean, simScenario, activeMode);
     }
   };
 
@@ -3135,7 +3215,7 @@ export default function App() {
     }
   };
 
-  const startBrowserSimulation = (cleanTarget, scenario) => {
+  const startBrowserSimulation = (cleanTarget, scenario, activeMode = "icmp") => {
     if (simTimerRef.current) clearInterval(simTimerRef.current);
     simTickRef.current = 0;
     setIsRunning(true);
@@ -3143,7 +3223,7 @@ export default function App() {
     const runSimStep = () => {
       simTickRef.current += 1;
       const tick = simTickRef.current;
-      const simulated = buildSimulatedSnapshot(cleanTarget, tick, scenario);
+      const simulated = buildSimulatedSnapshot(cleanTarget, tick, scenario, activeMode);
       setSnapshot(simulated);
     };
 
@@ -3243,8 +3323,20 @@ export default function App() {
         const blobData =
           format === "json"
             ? JSON.stringify(snapshot, null, 2)
+            : format === "html"
+            ? buildBrowserHTMLReport(snapshot, lang, locH, appVersion)
+            : format === "csv"
+            ? buildBrowserCSVReport(snapshot)
             : buildBrowserDetailedReport(snapshot, lang, locH, appVersion);
-        const blob = new Blob([blobData], { type: "text/plain;charset=utf-8" });
+        const mimeType =
+          format === "html"
+            ? "text/html;charset=utf-8"
+            : format === "json"
+            ? "application/json;charset=utf-8"
+            : format === "csv"
+            ? "text/csv;charset=utf-8"
+            : "text/plain;charset=utf-8";
+        const blob = new Blob([blobData], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -3276,20 +3368,31 @@ export default function App() {
     setDnsLoading(true);
     setErrorBanner("");
     try {
-      if (hasWailsBackend() && window.go.main.App.RunDNSLookup) {
+      if (hasWailsBackend() && window.go.main.App.RunDNSLookupWithOptions) {
+        const res = await window.go.main.App.RunDNSLookupWithOptions(
+          dnsTarget,
+          dnsResolver,
+          dnsUseDoH
+        );
+        setDnsReport(res);
+      } else if (hasWailsBackend() && window.go.main.App.RunDNSLookup) {
         const res = await window.go.main.App.RunDNSLookup(dnsTarget);
         setDnsReport(res);
       } else {
         setDnsReport({
           target: dnsTarget,
+          resolver: dnsUseDoH ? `${dnsResolver === "system" ? "1.1.1.1" : dnsResolver} (DoH)` : dnsResolver,
+          useDoH: dnsUseDoH,
+          dnssecValidated: dnsUseDoH || dnsResolver !== "system",
           queryTimeMs: 14.2,
           checkedAt: new Date().toTimeString().slice(0, 8),
           records: [
-            { type: "A", value: "142.250.185.46" },
-            { type: "AAAA", value: "2a00:1450:4001:810::200e" },
-            { type: "MX", value: "10 smtp.google.com" },
-            { type: "NS", value: "ns1.google.com" },
-            { type: "TXT", value: "v=spf1 include:_spf.google.com ~all" },
+            { type: "A", value: "142.250.185.46", ttl: 300, latencyMs: 11.4, dnssec: dnsUseDoH },
+            { type: "AAAA", value: "2a00:1450:4001:810::200e", ttl: 300, latencyMs: 12.1, dnssec: dnsUseDoH },
+            { type: "MX", value: "10 smtp.google.com", ttl: 600, latencyMs: 13.8 },
+            { type: "NS", value: "ns1.google.com", ttl: 3600, latencyMs: 9.6 },
+            { type: "SOA", value: "ns1.google.com dns-admin.google.com (serial 20261115, refresh 900s)", ttl: 60, latencyMs: 14.0 },
+            { type: "CAA", value: '0 issue "pki.goog"', ttl: 3600, latencyMs: 14.2 },
           ],
         });
       }
@@ -3305,7 +3408,10 @@ export default function App() {
     setPortLoading(true);
     setErrorBanner("");
     try {
-      if (hasWailsBackend() && window.go.main.App.RunPortScan) {
+      if (hasWailsBackend() && window.go.main.App.RunPortScanSpec) {
+        const res = await window.go.main.App.RunPortScanSpec(portHost, portSpec);
+        setPortReport(res);
+      } else if (hasWailsBackend() && window.go.main.App.RunPortScan) {
         const res = await window.go.main.App.RunPortScan(portHost, []);
         setPortReport(res);
       } else {
@@ -3316,7 +3422,7 @@ export default function App() {
           totalPorts: 6,
           durationMs: 312.5,
           results: [
-            { port: 22, service: "SSH", state: "closed", latencyMs: 0 },
+            { port: 22, service: "SSH", state: "filtered", latencyMs: 0 },
             { port: 53, service: "DNS", state: "open", latencyMs: 18.4 },
             { port: 80, service: "HTTP", state: "closed", latencyMs: 0 },
             { port: 443, service: "HTTPS", state: "open", latencyMs: 19.1 },
@@ -3329,6 +3435,38 @@ export default function App() {
       setErrorBanner(typeof err === "string" ? err : err?.message || String(err));
     } finally {
       setPortLoading(false);
+    }
+  };
+
+  const handleInspectTls = async (e) => {
+    if (e) e.preventDefault();
+    setTlsLoading(true);
+    setErrorBanner("");
+    try {
+      if (hasWailsBackend() && window.go.main.App.RunTLSInspect) {
+        const res = await window.go.main.App.RunTLSInspect(portHost, tlsPort);
+        setTlsReport(res);
+      } else {
+        setTlsReport({
+          host: portHost,
+          port: tlsPort,
+          protocolVersion: "TLS 1.3",
+          cipherSuite: "TLS_AES_128_GCM_SHA256",
+          handshakeMs: 24.8,
+          subject: portHost,
+          issuer: "WE1 (Google Trust Services)",
+          sans: [portHost, `*.${portHost}`],
+          notBefore: "2026-09-01",
+          notAfter: "2027-03-01",
+          daysRemaining: 106,
+          verified: true,
+          checkedAt: new Date().toTimeString().slice(0, 8),
+        });
+      }
+    } catch (err) {
+      setErrorBanner(typeof err === "string" ? err : err?.message || String(err));
+    } finally {
+      setTlsLoading(false);
     }
   };
 
@@ -3426,10 +3564,12 @@ export default function App() {
         : down >= 12 && loss < 5
         ? "B"
         : "C";
+    const peakDown = speedSnap.peakDownloadMbps || down;
+    const peakUp = speedSnap.peakUploadMbps || up;
     const text =
       lang === "ar"
-        ? `🚀 نتيجة فحص سرعة مسار (${versionDisplay} — ${modeStr}):\n• سرعة التحميل (أعلى قراءة): ${down.toFixed(1)} Mbps\n• سرعة الرفع (أعلى قراءة): ${up.toFixed(1)} Mbps\n• الاستجابة: الخمول ${ping.toFixed(1)} ms | أثناء التحميل ${downPing.toFixed(1)} ms | أثناء الرفع ${upPing.toFixed(1)} ms\n• التذبذب: ${jitter.toFixed(1)} ms | فقد الحزم: ${loss.toFixed(1)}%\n• الخادم: ${speedSnap.serverName || "Cloudflare Anycast"} | التقييم: ${grade}`
-        : `🚀 Masar Speedtest Results (${versionDisplay} — ${modeStr}):\n• Download (Peak): ${down.toFixed(1)} Mbps\n• Upload (Peak): ${up.toFixed(1)} Mbps\n• Latency: Idle ${ping.toFixed(1)} ms | Download ${downPing.toFixed(1)} ms | Upload ${upPing.toFixed(1)} ms\n• Jitter: ${jitter.toFixed(1)} ms | Loss: ${loss.toFixed(1)}%\n• Server: ${speedSnap.serverName || "Cloudflare Anycast"} | Grade: ${grade}`;
+        ? `🚀 نتيجة فحص سرعة مسار (${versionDisplay} — ${modeStr}):\n• سرعة التحميل (المستدامة): ${down.toFixed(1)} Mbps (الذروة: ${peakDown.toFixed(1)} Mbps)\n• سرعة الرفع (المستدامة): ${up.toFixed(1)} Mbps (الذروة: ${peakUp.toFixed(1)} Mbps)\n• الاستجابة: الخمول ${ping.toFixed(1)} ms | أثناء التحميل ${downPing.toFixed(1)} ms | أثناء الرفع ${upPing.toFixed(1)} ms\n• التذبذب: ${jitter.toFixed(1)} ms | فقد الحزم: ${loss.toFixed(1)}%\n• الخادم: ${speedSnap.serverName || "Cloudflare Anycast"} | التقييم: ${grade}`
+        : `🚀 Masar Speedtest Results (${versionDisplay} — ${modeStr}):\n• Download (Sustained): ${down.toFixed(1)} Mbps (Peak: ${peakDown.toFixed(1)} Mbps)\n• Upload (Sustained): ${up.toFixed(1)} Mbps (Peak: ${peakUp.toFixed(1)} Mbps)\n• Latency: Idle ${ping.toFixed(1)} ms | Download ${downPing.toFixed(1)} ms | Upload ${upPing.toFixed(1)} ms\n• Jitter: ${jitter.toFixed(1)} ms | Loss: ${loss.toFixed(1)}%\n• Server: ${speedSnap.serverName || "Cloudflare Anycast"} | Grade: ${grade}`;
 
     try {
       if (hasWailsRuntime() && window.runtime.ClipboardSetText) {
@@ -3739,7 +3879,7 @@ export default function App() {
           splashVisible && !splashExiting ? "pointer-events-none" : ""
         } ${
           uiTheme === "light"
-            ? "bg-[#e6ecf3] border-b border-slate-900/[0.12]"
+            ? "bg-[#f6f9fc] border-b border-slate-900/[0.09]"
             : "bg-[#0e1422] border-b border-slate-700/50"
         }`}
         style={{ WebkitAppRegion: "drag", "--wails-draggable": "drag" }}
@@ -3749,65 +3889,34 @@ export default function App() {
         <div className="flex items-center gap-2.5 pointer-events-none">
           <MasarLogo size={20} className="shrink-0 drop-shadow-sm" />
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-bold text-slate-100 tracking-tight leading-none flex items-center gap-1.5">
+            <span className="text-[13px] font-bold text-slate-100 tracking-tight leading-normal flex items-center gap-1.5">
               <span>Masar</span>
               <span>مسار</span>
             </span>
-            <span className="text-[10px] font-semibold leading-none text-sky-300 bg-sky-500/10 border border-sky-500/25 px-2 py-1 rounded-full font-mono">
+            <span className="text-[11px] font-semibold leading-none text-sky-200 bg-sky-500/15 border border-sky-400/35 px-2 py-1 rounded-full font-mono">
               {versionDisplay}
             </span>
           </div>
           <span className="hidden sm:inline-block h-3.5 w-px bg-slate-700/70 mx-0.5" />
-          <span className="hidden sm:inline-block text-[11px] font-medium text-slate-400/90 leading-none">
+          <span
+            dir={t.dir}
+            className="hidden sm:inline-block font-sans text-xs font-medium text-slate-200 leading-normal masar-text-glow-sky"
+          >
             {t.appSubtitle}
           </span>
           {(isRunning || speedRunning) && (
-            <span className="flex items-center gap-1.5 text-[10px] font-semibold leading-none text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-full ml-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold leading-none text-emerald-200 bg-emerald-500/15 border border-emerald-500/35 px-2.5 py-1 rounded-full ml-1">
               <StatusLottie variant="loading" size={13} />
               {t.tracingLive}
             </span>
           )}
         </div>
 
-        {/* Right: Window Controls & UI Scaling */}
+        {/* Right: Window Controls */}
         <div
           className="wails-no-drag flex items-center gap-1"
           style={{ WebkitAppRegion: "no-drag", "--wails-draggable": "no-drag" }}
         >
-          {/* Quick UI Scale / Zoom Capsule */}
-          <div className="inline-flex items-center h-6 bg-sky-500/10 border border-sky-500/25 rounded-full px-1 gap-0.5 text-sky-300">
-            <button
-              type="button"
-              onClick={handleZoomOut}
-              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-sky-500/20 text-sky-300/80 hover:text-sky-200 transition"
-              title={t.zoomOut}
-            >
-              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M2 5H8" strokeLinecap="round" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={handleZoomReset}
-              className="h-5 min-w-[34px] px-1 flex items-center justify-center rounded-full hover:bg-sky-500/20 text-[10px] font-mono tabular-nums font-semibold leading-none text-sky-300 hover:text-sky-200 transition"
-              title={t.zoomReset}
-            >
-              {Math.round(uiScale * 100)}%
-            </button>
-            <button
-              type="button"
-              onClick={handleZoomIn}
-              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-sky-500/20 text-sky-300/80 hover:text-sky-200 transition"
-              title={t.zoomIn}
-            >
-              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M5 2V8M2 5H8" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-
-          <span className="h-4 w-px bg-slate-800/80 mx-1" />
-
           <button
             type="button"
             onClick={handleMinimize}
@@ -4005,10 +4114,56 @@ export default function App() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    startTrace(target);
+                    startTrace(target, mtrMode);
                   }}
-                  className="flex items-center gap-2 shrink-0"
+                  className="flex flex-wrap items-center gap-2 shrink-0"
                 >
+                  <div
+                    role="group"
+                    aria-label={lang === "ar" ? "بروتوكول الفحص" : "Probe Protocol"}
+                    className="masar-well inline-flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-700/80"
+                    dir="ltr"
+                  >
+                    {[
+                      { id: "icmp", label: "ICMP" },
+                      { id: "tcp", label: "TCP" },
+                      { id: "udp", label: "UDP" },
+                    ].map((pm) => {
+                      const active = mtrMode === pm.id;
+                      return (
+                        <button
+                          key={pm.id}
+                          type="button"
+                          onClick={() => {
+                            setMtrMode(pm.id);
+                            if (isRunning && target.trim()) {
+                              startTrace(target, pm.id);
+                            }
+                          }}
+                          title={
+                            pm.id === "icmp"
+                              ? lang === "ar"
+                                ? "ICMP Echo القياسي (تتبع كل القفزات)"
+                                : "Standard ICMP Echo Traceroute"
+                              : pm.id === "tcp"
+                                ? lang === "ar"
+                                  ? "TCP-MTR (يدعم host:port مثل 1.1.1.1:443)"
+                                  : "TCP-MTR Probe (supports host:port e.g. 1.1.1.1:443)"
+                                : lang === "ar"
+                                  ? "UDP-MTR (المنافذ 33434+)"
+                                  : "UDP-MTR Probes (ports 33434+)"
+                          }
+                          className={`px-2 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                            active
+                              ? "bg-sky-600 text-white shadow-sm"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          {pm.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <input
                     dir="ltr"
                     type="text"
@@ -4128,6 +4283,11 @@ export default function App() {
                   >
                     {theme.label}
                   </span>
+                  {snapshot.protocol && (
+                    <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-900/90 border border-slate-700/80 text-sky-300" dir="ltr">
+                      {snapshot.protocol}
+                    </span>
+                  )}
                   <span className="text-xs text-slate-400">
                     {t.targetLabel}:{" "}
                     <bdi dir="ltr" className="font-mono text-slate-300">
@@ -4198,6 +4358,35 @@ export default function App() {
                         : "—"}
                     </span>
                   </div>
+                  {snapshot?.mosScore > 0 && (
+                    <div
+                      className="masar-well px-3 py-1.5 rounded-xl border border-slate-800/80 flex items-center gap-2"
+                      title={
+                        lang === "ar"
+                          ? "تقدير جودة المكالمات الصوتية وفق معيار ITU-T G.107 E-Model (من 1.0 إلى 4.5)"
+                          : "ITU-T G.107 E-Model Voice/Real-Time Quality Score (1.0 - 4.5)"
+                      }
+                    >
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {lang === "ar" ? "جودة MOS:" : "VoIP MOS:"}
+                      </span>
+                      <span
+                        className={`text-xs font-mono font-bold tabular-nums ${
+                          snapshot.mosScore >= 4.2
+                            ? "text-emerald-400"
+                            : snapshot.mosScore >= 3.7
+                              ? "text-sky-400"
+                              : snapshot.mosScore >= 3.1
+                                ? "text-amber-400"
+                                : "text-red-400"
+                        }`}
+                        dir="ltr"
+                      >
+                        {snapshot.mosScore.toFixed(2)}
+                        {snapshot.mosGrade ? ` (${snapshot.mosGrade})` : ""}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -4703,10 +4892,22 @@ export default function App() {
                                   * * * (<bdi>{t.timedOut}</bdi>)
                                 </span>
                               ) : (
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-wrap">
                                   <span className="text-slate-100 font-semibold">
                                     {hop.ip}
                                   </span>
+                                  {Array.isArray(hop.altIps) && hop.altIps.length > 0 && (
+                                    <span
+                                      title={`${
+                                        lang === "ar"
+                                          ? "مسارات ECMP بديلة"
+                                          : "ECMP Alternate Responders"
+                                      }: ${hop.altIps.join(", ")}`}
+                                      className="px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/35 text-[10px] font-bold shrink-0 cursor-help"
+                                    >
+                                      +{hop.altIps.length} ECMP
+                                    </span>
+                                  )}
                                   {hop.hostname && (
                                     <span className="text-xs text-slate-400 truncate max-w-[210px]">
                                       ({hop.hostname})
@@ -4817,6 +5018,15 @@ export default function App() {
               </table>
             </div>
           </section>
+
+          <Suspense fallback={null}>
+            <MtrTimelineCanvas
+              points={mtrTimeline}
+              uiTheme={uiTheme}
+              lang={lang}
+              onClear={() => setMtrTimeline([])}
+            />
+          </Suspense>
         </main>
       )}
 
@@ -4833,14 +5043,60 @@ export default function App() {
                 <h2 className="text-lg font-bold text-white">{t.dnsTitle}</h2>
                 <p className="text-xs text-slate-400 mt-0.5">{t.dnsDesc}</p>
               </div>
-              <form onSubmit={handleRunDNS} className="flex items-center gap-2 shrink-0">
+              <form onSubmit={handleRunDNS} className="flex flex-wrap items-center gap-2 shrink-0">
+                <select
+                  aria-label={lang === "ar" ? "خادم DNS" : "DNS Resolver"}
+                  value={dnsResolver}
+                  onChange={(e) => {
+                    const nextResolver = e.target.value;
+                    setDnsResolver(nextResolver);
+                    if (nextResolver === "system" && dnsUseDoH) {
+                      setDnsUseDoH(false);
+                    }
+                  }}
+                  dir={lang === "ar" && dnsResolver === "system" ? "rtl" : "ltr"}
+                  className={`masar-well bg-slate-950 border border-slate-700 focus:border-sky-500 focus:outline-none rounded-xl px-2.5 py-1.5 text-xs text-slate-200 cursor-pointer ${
+                    lang === "ar" && dnsResolver === "system" ? "font-sans" : "font-mono"
+                  }`}
+                >
+                  <option value="system" dir={t.dir}>
+                    {lang === "ar" ? "النظام (System)" : "System"}
+                  </option>
+                  <option value="1.1.1.1" dir="ltr">1.1.1.1 (Cloudflare)</option>
+                  <option value="8.8.8.8" dir="ltr">8.8.8.8 (Google)</option>
+                  <option value="9.9.9.9" dir="ltr">9.9.9.9 (Quad9)</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={dnsResolver === "system"}
+                  onClick={() => setDnsUseDoH((prev) => !prev)}
+                  title={
+                    dnsResolver === "system"
+                      ? lang === "ar"
+                        ? "اختر 1.1.1.1 أو 8.8.8.8 أو 9.9.9.9 لتفعيل استعلام DoH المشفر"
+                        : "Select 1.1.1.1, 8.8.8.8, or 9.9.9.9 to enable encrypted DoH (RFC 8484)"
+                      : lang === "ar"
+                        ? "تفعيل استعلام DNS المشفر عبر HTTPS (RFC 8484 + EDNS0 DNSSEC)"
+                        : "Use encrypted DNS-over-HTTPS (RFC 8484 Wire Format + EDNS0 DO=1)"
+                  }
+                  dir="ltr"
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-mono font-semibold border transition-all ${
+                    dnsResolver === "system"
+                      ? "bg-slate-900/40 border-slate-800 text-slate-600 cursor-not-allowed"
+                      : dnsUseDoH
+                        ? "bg-indigo-600/25 border-indigo-500/60 text-indigo-300 shadow-sm cursor-pointer"
+                        : "bg-slate-950 border-slate-700 text-slate-400 hover:text-slate-200 cursor-pointer"
+                  }`}
+                >
+                  DoH
+                </button>
                 <input
                   dir="ltr"
                   type="text"
                   value={dnsTarget}
                   onChange={(e) => setDnsTarget(e.target.value)}
                   placeholder={t.dnsPlaceholder}
-                  className="masar-well w-64 bg-slate-950 border border-slate-700 focus:border-sky-500 focus:outline-none rounded-xl px-3 py-1.5 text-sm font-mono"
+                  className="masar-well w-56 sm:w-64 bg-slate-950 border border-slate-700 focus:border-sky-500 focus:outline-none rounded-xl px-3 py-1.5 text-sm font-mono"
                 />
                 <button
                   type="submit"
@@ -4895,6 +5151,35 @@ export default function App() {
                       {dnsReport.target}
                     </bdi>
                   </span>
+                  {dnsReport.resolver && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>{lang === "ar" ? "المُحلّل:" : "Resolver:"}</span>
+                      <bdi
+                        dir="ltr"
+                        className={`font-mono px-1.5 py-0.5 rounded border text-[11px] font-semibold ${
+                          dnsReport.useDoH
+                            ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/35"
+                            : "bg-slate-900 text-slate-200 border-slate-700"
+                        }`}
+                      >
+                        {dnsReport.resolver}
+                        {dnsReport.useDoH ? " · DoH" : ""}
+                      </bdi>
+                    </span>
+                  )}
+                  {dnsReport.dnssecValidated && (
+                    <span
+                      dir="ltr"
+                      title={
+                        lang === "ar"
+                          ? "تم التحقق من التوقيع الرقمي DNSSEC (AD=1)"
+                          : "DNSSEC Authentic Data (AD=1) flag verified by resolver"
+                      }
+                      className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/35"
+                    >
+                      ✓ DNSSEC AD
+                    </span>
+                  )}
                   <span className="text-sky-400 font-semibold">
                     {t.dnsQueryTime}:{" "}
                     <bdi dir="ltr" className="font-mono">
@@ -4926,7 +5211,37 @@ export default function App() {
                             </span>
                           </td>
                           <td className="py-2.5 px-4 text-slate-200 break-all">
-                            {rec.value}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="break-all">{rec.value}</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {rec.dnssec && (
+                                  <span
+                                    className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
+                                    dir="ltr"
+                                    title="DNSSEC AD verified"
+                                  >
+                                    AD
+                                  </span>
+                                )}
+                                {rec.ttl > 0 && (
+                                  <span
+                                    className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/80 text-amber-300"
+                                    dir="ltr"
+                                    title="Time To Live (seconds)"
+                                  >
+                                    TTL {rec.ttl}s
+                                  </span>
+                                )}
+                                {rec.latencyMs > 0 && (
+                                  <span
+                                    className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/80 text-sky-300"
+                                    dir="ltr"
+                                  >
+                                    {rec.latencyMs.toFixed(1)} ms
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -4980,8 +5295,11 @@ export default function App() {
                       desc: lang === "ar" ? "خوادم النطاق المعتمدة" : "Authoritative NS",
                     },
                     {
-                      type: "TXT / PTR",
-                      desc: lang === "ar" ? "سجلات التحقق والفحص العكسي" : "SPF, DMARC & rDNS",
+                      type: "TXT / PTR / SOA",
+                      desc:
+                        lang === "ar"
+                          ? "سجلات SPF و CAA والفحص العكسي والسلطة"
+                          : "SPF, CAA, SOA, DNSSEC & rDNS",
                     },
                   ].map((item) => (
                     <div
@@ -5020,15 +5338,52 @@ export default function App() {
               </div>
               <form
                 onSubmit={handleRunPortScan}
-                className="flex items-center gap-2 shrink-0"
+                className="flex flex-wrap items-center gap-2 shrink-0"
               >
+                <div
+                  role="group"
+                  aria-label={lang === "ar" ? "حزم المنافذ الجاهزة" : "Port Scan Presets"}
+                  className="masar-well inline-flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-700/80"
+                  dir="ltr"
+                >
+                  {["common", "web", "database", "remote"].map((preset) => {
+                    const active = (portSpec || "common").trim().toLowerCase() === preset;
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setPortSpec(preset)}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                          active
+                            ? "bg-emerald-600 text-white shadow-sm"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    );
+                  })}
+                </div>
+                <input
+                  dir="ltr"
+                  type="text"
+                  value={portSpec}
+                  onChange={(e) => setPortSpec(e.target.value)}
+                  placeholder="common | 22,80,8000-8010"
+                  title={
+                    lang === "ar"
+                      ? "نطاق أو قائمة المنافذ (حد أقصى 256 منفذًا: common أو web أو database أو 22,80,8000-8010)"
+                      : "Custom port list or range (max 256 ports: common, web, database, remote, or 22,80,8000-8010)"
+                  }
+                  className="masar-well w-40 sm:w-44 bg-slate-950 border border-slate-700 focus:border-emerald-500 focus:outline-none rounded-xl px-2.5 py-1.5 text-xs font-mono text-emerald-300"
+                />
                 <input
                   dir="ltr"
                   type="text"
                   value={portHost}
                   onChange={(e) => setPortHost(e.target.value)}
                   placeholder={t.portPlaceholder}
-                  className="masar-well w-64 bg-slate-950 border border-slate-700 focus:border-emerald-500 focus:outline-none rounded-xl px-3 py-1.5 text-sm font-mono"
+                  className="masar-well w-52 sm:w-60 bg-slate-950 border border-slate-700 focus:border-emerald-500 focus:outline-none rounded-xl px-3 py-1.5 text-sm font-mono"
                 />
                 <button
                   type="submit"
@@ -5095,33 +5450,45 @@ export default function App() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5" dir="ltr">
                   {(portReport.results || []).map((r) => {
                     const isOpen = r.state === "open";
+                    const isFiltered = r.state === "filtered";
                     return (
                       <div
                         key={r.port}
-                        className={`masar-lift-card p-3 rounded-xl border font-mono text-xs flex items-center justify-between ${
+                        className={`masar-lift-card p-3 rounded-xl border text-xs flex items-center justify-between ${
                           isOpen
                             ? "bg-emerald-950/35 border-emerald-500/50 text-emerald-200"
-                            : "masar-well bg-slate-950/60 border-slate-800/80 text-slate-500"
+                            : isFiltered
+                            ? "bg-amber-950/30 border-amber-500/45 text-amber-200"
+                            : "masar-well bg-slate-950/60 border-slate-800/80 text-slate-300"
                         }`}
                       >
-                        <div>
+                        <div className="font-mono">
                           <div className="font-bold text-sm">:{r.port}</div>
-                          <div className="text-[11px] opacity-80">
+                          <div className="text-[11px] opacity-85">
                             {r.service}
                           </div>
                         </div>
                         <div className="text-right">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            dir={t.dir}
+                            className={`font-sans px-2 py-0.5 rounded text-[10px] font-bold ${
+                              lang === "ar" ? "" : "uppercase tracking-wide"
+                            } ${
                               isOpen
                                 ? "bg-emerald-500/20 text-emerald-300"
-                                : "bg-slate-800 text-slate-500"
+                                : isFiltered
+                                ? "bg-amber-500/20 text-amber-300"
+                                : "bg-slate-800 text-slate-300"
                             }`}
                           >
-                            {isOpen ? t.stateOpen : t.stateClosed}
+                            {isOpen
+                              ? t.stateOpen
+                              : isFiltered
+                              ? t.stateFiltered
+                              : t.stateClosed}
                           </span>
                           {isOpen && (
-                            <div className="text-[11px] text-emerald-400 mt-1">
+                            <div className="text-[11px] font-mono text-emerald-400 mt-1">
                               {r.latencyMs.toFixed(1)} ms
                             </div>
                           )}
@@ -5182,6 +5549,18 @@ export default function App() {
               </div>
             )}
           </div>
+
+          <Suspense fallback={null}>
+            <TlsInspectorCard
+              host={portHost}
+              tlsPort={tlsPort}
+              onChangeTlsPort={setTlsPort}
+              tlsLoading={tlsLoading}
+              tlsReport={tlsReport}
+              onInspectTls={handleInspectTls}
+              lang={lang}
+            />
+          </Suspense>
         </main>
       )}
 
@@ -5289,7 +5668,7 @@ export default function App() {
                       className="group masar-cta-sheen masar-action-btn shrink-0 whitespace-nowrap active:scale-95 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-2 transition-all duration-300"
                       title={t.speedCopyResults}
                     >
-                      <span className="h-4 w-4 shrink-0 rounded-md bg-slate-900/70 text-sky-400 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 group-hover:rotate-12">
+                      <span className="h-4 w-4 shrink-0 rounded-md bg-sky-500/15 text-sky-400 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 group-hover:rotate-12">
                         <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                           <rect x="9" y="9" width="13" height="13" rx="2" strokeLinecap="round" strokeLinejoin="round" />
                           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" strokeLinecap="round" strokeLinejoin="round" />
@@ -5376,19 +5755,30 @@ export default function App() {
                         </svg>
                         <span>{t.speedDown}</span>
                       </span>
-                      <span className="text-[10px] font-mono text-slate-400 tabular-nums">
-                        {t.speedDownPing}: <bdi dir="ltr">{downLoadedPing > 0 ? `${downLoadedPing.toFixed(0)} ms` : "—"}</bdi>
+                      <span className="text-[11px] text-slate-300 tabular-nums">
+                        {t.speedDownPing}:{" "}
+                        <bdi dir="ltr" className="font-mono font-semibold text-slate-100">
+                          {downLoadedPing > 0 ? `${downLoadedPing.toFixed(0)} ms` : "—"}
+                        </bdi>
                       </span>
                     </div>
                     <div className="mt-1.5 flex items-baseline justify-between gap-2">
-                      <div className="text-2xl sm:text-3xl font-extrabold font-mono text-sky-400 tabular-nums tracking-tight" dir="ltr">
+                      <div
+                        className={`text-2xl sm:text-3xl font-extrabold font-mono text-sky-400 tabular-nums tracking-tight ${
+                          isDownActive ? "masar-text-glow-sky" : ""
+                        }`}
+                        dir="ltr"
+                      >
                         {downDisplay > 0 ? downDisplay.toFixed(1) : "—"}
-                        <span className="text-xs font-medium text-slate-400 ml-1.5">Mbps</span>
+                        <span className="text-xs font-medium text-slate-300 ml-1.5">Mbps</span>
                       </div>
-                      <span className="text-[11px] font-mono text-slate-400 tabular-nums min-h-[16px]">
+                      <span className="text-[11px] text-slate-300 tabular-nums min-h-[16px]">
                         {speedSnap.peakDownloadMbps > 0 ? (
                           <>
-                            {t.speedPeak} <bdi dir="ltr">{speedSnap.peakDownloadMbps.toFixed(1)}</bdi>
+                            {t.speedPeak}{" "}
+                            <bdi dir="ltr" className="font-mono font-semibold text-slate-100">
+                              {speedSnap.peakDownloadMbps.toFixed(1)}
+                            </bdi>
                           </>
                         ) : "\u00A0"}
                       </span>
@@ -5412,19 +5802,30 @@ export default function App() {
                         </svg>
                         <span>{t.speedUp}</span>
                       </span>
-                      <span className="text-[10px] font-mono text-slate-400 tabular-nums">
-                        {t.speedUpPing}: <bdi dir="ltr">{upLoadedPing > 0 ? `${upLoadedPing.toFixed(0)} ms` : "—"}</bdi>
+                      <span className="text-[11px] text-slate-300 tabular-nums">
+                        {t.speedUpPing}:{" "}
+                        <bdi dir="ltr" className="font-mono font-semibold text-slate-100">
+                          {upLoadedPing > 0 ? `${upLoadedPing.toFixed(0)} ms` : "—"}
+                        </bdi>
                       </span>
                     </div>
                     <div className="mt-1.5 flex items-baseline justify-between gap-2">
-                      <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400 tabular-nums tracking-tight" dir="ltr">
+                      <div
+                        className={`text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400 tabular-nums tracking-tight ${
+                          isUpActive ? "masar-text-glow-emerald" : ""
+                        }`}
+                        dir="ltr"
+                      >
                         {upDisplay > 0 ? upDisplay.toFixed(1) : "—"}
-                        <span className="text-xs font-medium text-slate-400 ml-1.5">Mbps</span>
+                        <span className="text-xs font-medium text-slate-300 ml-1.5">Mbps</span>
                       </div>
-                      <span className="text-[11px] font-mono text-slate-400 tabular-nums min-h-[16px]">
+                      <span className="text-[11px] text-slate-300 tabular-nums min-h-[16px]">
                         {speedSnap.peakUploadMbps > 0 ? (
                           <>
-                            {t.speedPeak} <bdi dir="ltr">{speedSnap.peakUploadMbps.toFixed(1)}</bdi>
+                            {t.speedPeak}{" "}
+                            <bdi dir="ltr" className="font-mono font-semibold text-slate-100">
+                              {speedSnap.peakUploadMbps.toFixed(1)}
+                            </bdi>
                           </>
                         ) : "\u00A0"}
                       </span>
@@ -5572,19 +5973,33 @@ export default function App() {
                   />
 
                   {/* Compact Progress & Telemetry Strip */}
-                  <div className="w-full max-w-lg space-y-1.5">
-                    <div className="flex items-center justify-between text-xs text-slate-400 font-mono" dir="ltr">
+                  <div className="w-full max-w-lg space-y-1.5" dir={t.dir}>
+                    <div className="flex items-center justify-between text-xs text-slate-200">
                       <span className="flex items-center gap-2">
-                        <span>{t.speedProgress}</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/80 border border-slate-700/80 text-slate-300">
-                          {(speedSnap.connectionMode || speedMode) === "single"
-                            ? t.speedStreamSingleUnit
-                            : `${speedSnap.activeStreams || 4} ${t.speedStreamsUnit}`}
+                        <span className="font-semibold text-slate-100 masar-text-glow-sky">
+                          {t.speedProgress}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/15 border border-sky-400/35 text-sky-200 shadow-[0_0_12px_-3px_rgba(56,189,248,0.4)]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                          {(speedSnap.connectionMode || speedMode) === "single" ? (
+                            <span>{lang === "ar" ? "قناة واحدة" : `1 ${t.speedStreamSingleUnit}`}</span>
+                          ) : (
+                            <>
+                              <bdi dir="ltr" className="font-mono font-extrabold text-white">
+                                {speedSnap.activeStreams || 4}
+                              </bdi>
+                              <span>{t.speedStreamsUnit}</span>
+                            </>
+                          )}
                         </span>
                       </span>
-                      <span className="flex items-center gap-3">
-                        <span className="text-slate-400">{(speedSnap.totalMB || 0).toFixed(1)} MB</span>
-                        <span className="text-sky-400 font-bold tabular-nums">{speedSnap.progress || 0}%</span>
+                      <span className="flex items-center gap-3 font-mono" dir="ltr">
+                        <span className="text-slate-300 font-medium">
+                          {(speedSnap.totalMB || 0).toFixed(1)} MB
+                        </span>
+                        <span className="text-sky-300 font-extrabold tabular-nums masar-text-glow-sky">
+                          {speedSnap.progress || 0}%
+                        </span>
                       </span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden p-0.5 border border-slate-700/50">
@@ -5611,8 +6026,20 @@ export default function App() {
                 const downLoadPing = speedSnap.downloadLatencyMs || speedSnap.loadedPingMs || idlePing;
                 const upLoadPing = speedSnap.uploadLatencyMs || speedSnap.loadedPingMs || idlePing;
                 const bloatDelta = Math.max(0, Math.max(downLoadPing, upLoadPing) - idlePing);
-                const bloatBadge =
-                  bloatDelta <= 25
+                const backendGrade = (speedSnap.bufferbloatGrade || "").toUpperCase();
+                const bloatBadge = backendGrade
+                  ? {
+                      label: `${lang === "ar" ? "تقدير Bufferbloat:" : "Grade"} ${backendGrade}`,
+                      cls:
+                        backendGrade === "A+" || backendGrade === "A"
+                          ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/35"
+                          : backendGrade === "B"
+                            ? "bg-sky-500/15 text-sky-300 border-sky-500/35"
+                            : backendGrade === "C"
+                              ? "bg-amber-500/15 text-amber-300 border-amber-500/35"
+                              : "bg-rose-500/15 text-rose-300 border-rose-500/35",
+                    }
+                  : bloatDelta <= 25
                     ? { label: t.speedLatencyLow, cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/35" }
                     : bloatDelta <= 75
                     ? { label: t.speedLatencyMed, cls: "bg-amber-500/15 text-amber-300 border-amber-500/35" }
@@ -5651,10 +6078,10 @@ export default function App() {
                       {/* Card A: Throughput Stability Curves */}
                       <div className="masar-well bg-slate-950/80 border border-slate-800/90 rounded-2xl p-4 space-y-3.5">
                         <div className="flex items-center justify-between border-b border-slate-800/70 pb-2">
-                          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
                             {t.speedDown} &amp; {t.speedUp}
                           </span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">
                             {(speedSnap.connectionMode || speedMode) === "single" ? t.speedModeSingle : t.speedModeMulti}
                           </span>
                         </div>
@@ -5663,15 +6090,24 @@ export default function App() {
                         <div className="flex items-center justify-between gap-3 bg-slate-900/60 border border-sky-500/25 rounded-xl px-3 py-2.5">
                           <div className="min-w-[110px]">
                             <div className="text-[11px] font-bold text-sky-400">{t.speedDown}</div>
-                            <div className="text-lg font-extrabold font-mono text-white tabular-nums" dir="ltr">
-                              {finalDown.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">Mbps</span>
+                            <div className="text-lg font-extrabold font-mono text-white tabular-nums masar-text-glow-sky" dir="ltr">
+                              {finalDown.toFixed(1)} <span className="text-[10px] font-normal text-slate-300">Mbps</span>
                             </div>
-                            <div className="text-[10px] font-mono text-slate-400 tabular-nums" dir="ltr">
-                              {t.speedPeak}: {(speedSnap.peakDownloadMbps || finalDown).toFixed(1)}
+                            <div className="text-[11px] text-slate-300 tabular-nums">
+                              {t.speedPeak}:{" "}
+                              <bdi dir="ltr" className="font-mono font-semibold text-slate-100">
+                                {(speedSnap.peakDownloadMbps || finalDown).toFixed(1)}
+                              </bdi>
                             </div>
                           </div>
                           <div className="flex-1 flex justify-end overflow-hidden">
-                            <LatencySparkline history={speedSnap.downloadHistory} width={220} height={38} colorOverride="#38bdf8" zeroBaseline />
+                            <LatencySparkline
+                              history={speedSnap.downloadHistory}
+                              width={220}
+                              height={38}
+                              colorOverride={uiTheme === "light" ? "#0284c7" : "#38bdf8"}
+                              zeroBaseline
+                            />
                           </div>
                         </div>
 
@@ -5679,15 +6115,24 @@ export default function App() {
                         <div className="flex items-center justify-between gap-3 bg-slate-900/60 border border-emerald-500/25 rounded-xl px-3 py-2.5">
                           <div className="min-w-[110px]">
                             <div className="text-[11px] font-bold text-emerald-400">{t.speedUp}</div>
-                            <div className="text-lg font-extrabold font-mono text-white tabular-nums" dir="ltr">
-                              {finalUp.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">Mbps</span>
+                            <div className="text-lg font-extrabold font-mono text-white tabular-nums masar-text-glow-emerald" dir="ltr">
+                              {finalUp.toFixed(1)} <span className="text-[10px] font-normal text-slate-300">Mbps</span>
                             </div>
-                            <div className="text-[10px] font-mono text-slate-400 tabular-nums" dir="ltr">
-                              {t.speedPeak}: {(speedSnap.peakUploadMbps || finalUp).toFixed(1)}
+                            <div className="text-[11px] text-slate-300 tabular-nums">
+                              {t.speedPeak}:{" "}
+                              <bdi dir="ltr" className="font-mono font-semibold text-slate-100">
+                                {(speedSnap.peakUploadMbps || finalUp).toFixed(1)}
+                              </bdi>
                             </div>
                           </div>
                           <div className="flex-1 flex justify-end overflow-hidden">
-                            <LatencySparkline history={speedSnap.uploadHistory} width={220} height={38} colorOverride="#10b981" zeroBaseline />
+                            <LatencySparkline
+                              history={speedSnap.uploadHistory}
+                              width={220}
+                              height={38}
+                              colorOverride={uiTheme === "light" ? "#059669" : "#10b981"}
+                              zeroBaseline
+                            />
                           </div>
                         </div>
                       </div>
@@ -5695,10 +6140,10 @@ export default function App() {
                       {/* Card B: Loaded Latency & Bufferbloat Profile */}
                       <div className="masar-well bg-slate-950/80 border border-slate-800/90 rounded-2xl p-4 flex flex-col justify-between gap-3">
                         <div className="flex items-center justify-between border-b border-slate-800/70 pb-2 gap-2">
-                          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
                             {t.speedBufferbloat}
                           </span>
-                          <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${bloatBadge.cls}`}>
+                          <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${bloatBadge.cls}`} dir={t.dir}>
                             {bloatBadge.label}
                           </span>
                         </div>
@@ -5706,42 +6151,46 @@ export default function App() {
                         {/* Idle / Download / Upload Ping Breakdown */}
                         <div className="grid grid-cols-3 gap-2.5">
                           <div className="rounded-xl bg-slate-900/60 border border-slate-800/80 p-2.5 text-center">
-                            <div className="text-[10px] text-slate-400 truncate">{t.speedIdlePing}</div>
+                            <div className="text-[11px] font-medium text-slate-300 truncate">{t.speedIdlePing}</div>
                             <div className="text-lg font-extrabold font-mono text-amber-400 mt-0.5 tabular-nums" dir="ltr">
-                              {idlePing.toFixed(1)}<span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
+                              {idlePing.toFixed(1)}<span className="text-[11px] font-normal text-slate-300 ml-0.5">ms</span>
                             </div>
-                            <div className="text-[10px] font-mono text-slate-500 mt-0.5 tabular-nums" dir="ltr">
-                              {speedSnap.bestPingMs > 0
-                                ? `${speedSnap.bestPingMs.toFixed(0)}–${(speedSnap.maxPingMs || speedSnap.bestPingMs).toFixed(0)}ms`
-                                : "—"}
+                            <div className="text-[11px] font-mono font-medium text-slate-300 mt-0.5 tabular-nums" dir="ltr">
+                              {speedSnap.latencyP50Ms > 0
+                                ? `p50 ${speedSnap.latencyP50Ms.toFixed(0)} · p95 ${(speedSnap.latencyP95Ms || speedSnap.latencyP50Ms).toFixed(0)} · p99 ${(speedSnap.latencyP99Ms || speedSnap.latencyP95Ms || speedSnap.latencyP50Ms).toFixed(0)}`
+                                : speedSnap.bestPingMs > 0
+                                  ? `${speedSnap.bestPingMs.toFixed(0)}–${(speedSnap.maxPingMs || speedSnap.bestPingMs).toFixed(0)}ms`
+                                  : "—"}
                             </div>
                           </div>
                           <div className="rounded-xl bg-slate-900/60 border border-slate-800/80 p-2.5 text-center">
-                            <div className="text-[10px] text-slate-400 truncate">{t.speedDownPing}</div>
+                            <div className="text-[11px] font-medium text-slate-300 truncate">{t.speedDownPing}</div>
                             <div className="text-lg font-extrabold font-mono text-sky-400 mt-0.5 tabular-nums" dir="ltr">
-                              {downLoadPing.toFixed(1)}<span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
+                              {downLoadPing.toFixed(1)}<span className="text-[11px] font-normal text-slate-300 ml-0.5">ms</span>
                             </div>
-                            <div className="text-[10px] font-mono text-slate-500 mt-0.5 tabular-nums" dir="ltr">
+                            <div className="text-[11px] font-mono font-medium text-slate-300 mt-0.5 tabular-nums" dir="ltr">
                               {downLoadPing > idlePing ? `+${(downLoadPing - idlePing).toFixed(0)}ms` : "0ms"}
+                              {speedSnap.downloadLatencyP95 > 0 ? ` · p95 ${speedSnap.downloadLatencyP95.toFixed(0)}ms` : ""}
                             </div>
                           </div>
                           <div className="rounded-xl bg-slate-900/60 border border-slate-800/80 p-2.5 text-center">
-                            <div className="text-[10px] text-slate-400 truncate">{t.speedUpPing}</div>
+                            <div className="text-[11px] font-medium text-slate-300 truncate">{t.speedUpPing}</div>
                             <div className="text-lg font-extrabold font-mono text-emerald-400 mt-0.5 tabular-nums" dir="ltr">
-                              {upLoadPing.toFixed(1)}<span className="text-[10px] font-normal text-slate-400 ml-0.5">ms</span>
+                              {upLoadPing.toFixed(1)}<span className="text-[11px] font-normal text-slate-300 ml-0.5">ms</span>
                             </div>
-                            <div className="text-[10px] font-mono text-slate-500 mt-0.5 tabular-nums" dir="ltr">
+                            <div className="text-[11px] font-mono font-medium text-slate-300 mt-0.5 tabular-nums" dir="ltr">
                               {upLoadPing > idlePing ? `+${(upLoadPing - idlePing).toFixed(0)}ms` : "0ms"}
+                              {speedSnap.uploadLatencyP95 > 0 ? ` · p95 ${speedSnap.uploadLatencyP95.toFixed(0)}ms` : ""}
                             </div>
                           </div>
                         </div>
 
                         {/* Secondary Telemetry Strip */}
-                        <div className="pt-2 border-t border-slate-800/70 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 font-mono">
-                          <span>{t.speedTotalData}: <bdi dir="ltr" className="font-bold text-slate-200">{(speedSnap.totalMB || 0).toFixed(1)} MB</bdi></span>
-                          <span>{t.speedJitter}: <bdi dir="ltr" className="font-bold text-purple-300">{(speedSnap.jitterMs || 0).toFixed(1)} ms</bdi></span>
-                          <span>{t.speedLoss}: <bdi dir="ltr" className="font-bold text-rose-300">{(speedSnap.packetLoss ?? 0).toFixed(1)}%</bdi></span>
-                          <span className="text-slate-500">{speedSnap.updatedAt}</span>
+                        <div className="pt-2 border-t border-slate-800/70 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300">
+                          <span>{t.speedTotalData}: <bdi dir="ltr" className="font-mono font-bold text-slate-100">{(speedSnap.totalMB || 0).toFixed(1)} MB</bdi></span>
+                          <span>{t.speedJitter}: <bdi dir="ltr" className="font-mono font-bold text-purple-300">{(speedSnap.jitterMs || 0).toFixed(1)} ms</bdi></span>
+                          <span>{t.speedLoss}: <bdi dir="ltr" className="font-mono font-bold text-rose-300">{(speedSnap.packetLoss ?? 0).toFixed(1)}%</bdi></span>
+                          <span className="font-mono text-slate-400" dir="ltr">{speedSnap.updatedAt}</span>
                         </div>
                       </div>
                     </div>
@@ -5840,7 +6289,7 @@ export default function App() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t.speedServerCard}</span>
-                    <span className="text-[10px] font-mono text-emerald-400">
+                    <span className="text-[11px] font-semibold text-emerald-300">
                       {(speedSnap.connectionMode || speedMode) === "single" ? t.speedModeSingle : t.speedModeMulti}
                     </span>
                   </div>
@@ -5953,20 +6402,100 @@ export default function App() {
       </div>
       </div>
 
-      {/* Bottom-Right Corner Dock: Language Switcher + Settings Icon */}
+      {/* Bottom-Right Corner Dock: Vertical Stack of Zoom, Language & Settings Capsules */}
       <div
         dir="ltr"
-        className="fixed bottom-3 right-6 z-40 transform-gpu flex items-center gap-3"
+        className="fixed bottom-3 right-6 z-40 flex flex-col items-end gap-2"
       >
-        {/* Animated Morphing Language Capsule */}
+        {/* 1. Animated Morphing Zoom Capsule */}
         <div
-          className={`h-8 min-w-[32px] flex items-center bg-slate-900/95 border border-slate-800/90 hover:border-sky-500/40 rounded-xl overflow-hidden shadow-lg transition-all duration-300 ease-out ${
+          className={`h-8 min-w-[32px] flex flex-row-reverse items-center bg-slate-900/95 border border-slate-800/90 hover:border-sky-500/40 rounded-xl overflow-hidden shadow-lg transition-all duration-300 ease-out ${
+            zoomMenuOpen ? "px-1" : "p-0"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setZoomMenuOpen((prev) => !prev);
+              setLangMenuOpen(false);
+            }}
+            className={`masar-icon-btn shrink-0 flex items-center justify-center transition-all duration-300 ${
+              zoomMenuOpen
+                ? "h-6 w-6 rounded-lg bg-sky-500/20 text-sky-300"
+                : uiScale !== 1
+                  ? "h-full w-8 text-sky-400 hover:text-sky-300 hover:bg-slate-800"
+                  : "h-full w-8 text-slate-400 hover:text-sky-400 hover:bg-slate-800"
+            }`}
+            title={`${lang === "ar" ? "تكبير وتصغير الواجهة" : "UI Zoom"} (${Math.round(uiScale * 100)}%)`}
+          >
+            <svg
+              className={`masar-icon-target w-4 h-4 ${
+                zoomMenuOpen ? "scale-110 text-sky-400" : ""
+              }`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.35-4.35" />
+              <path d="M11 8v6M8 11h6" />
+            </svg>
+          </button>
+
+          {/* Expanding Animated Zoom Controls (- 100% +) */}
+          <div
+            className={`flex items-center overflow-hidden transition-all duration-300 ease-out ${
+              zoomMenuOpen
+                ? "max-w-[148px] opacity-100 pl-1 pr-1 gap-0.5"
+                : "max-w-0 opacity-0 pl-0 gap-0 pointer-events-none"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              className="h-6 w-6 rounded-md flex items-center justify-center text-slate-300 hover:bg-slate-800 hover:text-white transition-all duration-200"
+              title={t.zoomOut}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 5H8" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomReset}
+              className="h-6 min-w-[40px] px-1.5 rounded-md flex items-center justify-center text-xs font-mono tabular-nums font-bold leading-none text-slate-100 hover:bg-slate-800 hover:text-sky-300 masar-text-glow-sky transition-all duration-200"
+              title={t.zoomReset}
+            >
+              {Math.round(uiScale * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              className="h-6 w-6 rounded-md flex items-center justify-center text-slate-300 hover:bg-slate-800 hover:text-white transition-all duration-200"
+              title={t.zoomIn}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 2V8M2 5H8" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Animated Morphing Language Capsule */}
+        <div
+          className={`h-8 min-w-[32px] flex flex-row-reverse items-center bg-slate-900/95 border border-slate-800/90 hover:border-sky-500/40 rounded-xl overflow-hidden shadow-lg transition-all duration-300 ease-out ${
             langMenuOpen ? "px-1" : "p-0"
           }`}
         >
           <button
             type="button"
-            onClick={() => setLangMenuOpen((prev) => !prev)}
+            onClick={() => {
+              setLangMenuOpen((prev) => !prev);
+              setZoomMenuOpen(false);
+            }}
             className={`masar-icon-btn shrink-0 flex items-center justify-center transition-all duration-300 ${
               langMenuOpen
                 ? "h-6 w-6 rounded-lg bg-sky-500/20 text-sky-300"
@@ -6021,10 +6550,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* Settings & Guide Icon Button */}
+        {/* 3. Settings & Guide Icon Button */}
         <button
           type="button"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => {
+            setZoomMenuOpen(false);
+            setLangMenuOpen(false);
+            setSettingsOpen(true);
+          }}
           className="masar-icon-btn group w-8 h-8 rounded-xl bg-slate-900/95 hover:bg-slate-800 border border-slate-800/90 hover:border-sky-500/40 shadow-lg flex items-center justify-center text-slate-400 hover:text-sky-400 transition-all duration-300"
           title={t.settingsBtn}
         >
@@ -6185,7 +6718,7 @@ export default function App() {
                       </p>
                     </div>
 
-                    <ThemePreviewMiniUI mode="dark" />
+                    <ThemePreviewMiniUI mode="dark" versionDisplay={versionDisplay} />
                   </button>
 
                   <button
@@ -6193,7 +6726,7 @@ export default function App() {
                     onClick={() => selectTheme("light")}
                     className={`masar-lift-card text-start rounded-2xl p-4 border transition-all flex flex-col justify-between gap-3 ${
                       uiTheme === "light"
-                        ? "border-sky-500/80 ring-1 ring-sky-500/40 bg-sky-950/20 shadow-lg shadow-sky-500/10"
+                        ? "border-sky-600/80 ring-1 ring-sky-600/30 bg-sky-50 shadow-lg shadow-sky-600/10"
                         : "border-slate-800/80 bg-slate-950/60 hover:border-slate-700"
                     }`}
                   >
@@ -6216,7 +6749,7 @@ export default function App() {
                       </p>
                     </div>
 
-                    <ThemePreviewMiniUI mode="light" />
+                    <ThemePreviewMiniUI mode="light" versionDisplay={versionDisplay} />
                   </button>
                 </div>
               </section>
@@ -6359,21 +6892,24 @@ export default function App() {
       </AnimatedModal>
 
       {/* EXTRACTED DATA BREAKDOWN, REPORT STUDIO & 12-METRIC REFERENCE MODAL */}
-      <ReportStudioModal
-        open={reportModalOpen}
-        onClose={() => setReportModalOpen(false)}
-        lang={lang}
-        uiTheme={uiTheme}
-        snapshot={snapshot}
-        localizedHealth={localizedHealth}
-        copyFeedback={copyFeedback}
-        exportFeedback={exportFeedback}
-        reportNotice={reportNotice}
-        onCopySummary={handleCopySummary}
-        onExportReport={handleExportReport}
-        onStartTraceNow={() => startTrace(target)}
-        SectionAmbientBackground={SectionAmbientBackground}
-      />
+      <Suspense fallback={null}>
+        <ReportStudioModal
+          open={reportModalOpen}
+          onClose={() => setReportModalOpen(false)}
+          lang={lang}
+          uiTheme={uiTheme}
+          snapshot={snapshot}
+          localizedHealth={localizedHealth}
+          copyFeedback={copyFeedback}
+          exportFeedback={exportFeedback}
+          reportNotice={reportNotice}
+          onCopySummary={handleCopySummary}
+          onExportReport={handleExportReport}
+          onStartTraceNow={() => startTrace(target, mtrMode)}
+          SectionAmbientBackground={SectionAmbientBackground}
+          appVersion={appVersion}
+        />
+      </Suspense>
 
       {/* FLOATING UPDATE NOTIFIER */}
       <UpdateNotifier lang={lang} />
