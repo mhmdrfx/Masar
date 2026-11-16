@@ -55,7 +55,7 @@ Whether you are troubleshooting ISP routing bottlenecks, isolating real packet l
 | **Bottleneck & Anomaly Engine** | Automated root-cause heuristics that distinguish harmless control-plane ICMP throttling on intermediate hops from genuine downstream packet loss or ISP peering congestion. |
 | **DNS Inspector & Port Scanner** | Concurrent benchmarking across public and local gateway DNS resolvers (`A`, `AAAA`, `MX`, `TXT`, `NS`, `CNAME`, `PTR`) alongside a 20-worker concurrent TCP handshake port scanner with service detection. |
 | **Official PDF & Report Studio** | Native Windows save-dialog export generating official **Printable HTML / PDF** speed & route reports (featuring the Masar vector logo, telemetry charts, and Peak/Score breakdowns), plus **CSV** (injection-hardened), **JSON**, and **Plain-Text** formats. |
-| **Refined Dual-Theme & Bilingual UI** | Instant **English (LTR)** / **Arabic (RTL)** switching, zero-distraction **Carbon Slate Dark Mode** & anti-glare **Soft Daylight Mode**, executive startup splash with optional harmonic chime, 60 FPS GPU motion choreography, custom vector iconography, and titlebar zoom scaling (`85%–150%`). |
+| **Refined Dual-Theme & Bilingual UI** | Instant **English (LTR)** / **Arabic (RTL)** switching, zero-distraction **Carbon Slate Dark Mode** & anti-glare **Soft Daylight Mode**, executive startup splash with optional harmonic chime, 60 FPS GPU motion choreography, custom vector iconography, and a vertical bottom-right Corner Dock (Zoom `80%–150%`, Language, Settings). |
 
 ---
 
@@ -65,21 +65,21 @@ Whether you are troubleshooting ISP routing bottlenecks, isolating real packet l
 > Real-time ICMPv4 route tracing with per-hop latency telemetry, 4-stage packet topology (`Device → Local Gateway → ISP Backbone → Destination`), jitter trends, and Geo-IP / ASN attribution.
 
 <p align="center">
-  <img src="docs/screenshots/masar-mtr-dark.png" alt="Masar Visual MTR Dark Mode" width="100%" />
+  <img src="docs/screenshots/masar-mtr-en.png" alt="Masar Visual MTR Dark Mode" width="100%" />
 </p>
 
 ### 2. Speedtest-Style Live Circular Dial Gauge
 > Spacious 280px live dial gauge saturating Gigabit+ lines with 12 concurrent Download streams and 8 concurrent Upload streams via `speed.cloudflare.com` Anycast edges.
 
 <p align="center">
-  <img src="docs/screenshots/masar-speed-dial.png" alt="Masar Speed Benchmark Live Dial Gauge" width="100%" />
+  <img src="docs/screenshots/masar-speed-dial-en.png" alt="Masar Speed Benchmark Live Dial Gauge" width="100%" />
 </p>
 
 ### 3. Certified Speed Scorecard & Bufferbloat Telemetry
 > Final sustained Speedtest-standard scorecards (with **Peak (Max Speed)** clarity, **Idle vs. Loaded Ping**, **Grade A+**, 1-click **PDF Report** export, and live Anycast edge response comparison).
 
 <p align="center">
-  <img src="docs/screenshots/masar-speed-dark.png" alt="Masar Speed Benchmark Complete Scorecard" width="100%" />
+  <img src="docs/screenshots/masar-speed-score-en.png" alt="Masar Speed Benchmark Complete Scorecard" width="100%" />
 </p>
 
 ---
@@ -216,7 +216,7 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for full details
 | **محرك تصفية الراوترات الصامتة** | خوارزمية تحليل تلقائية تميّز بذكاء بين التجاهل الطبيعي لردود <bdi>ICMP</bdi> في قفزات العبور وبين فقدان الحزم أو الاختناق الحقيقي الذي يؤثر على اتصالك. |
 | **مقارنة <bdi>DNS</bdi> وفاحص المنافذ (<bdi>TCP Ports</bdi>)** | استعلام متوازٍ لسجلات النطاقات (<bdi>A, AAAA, CNAME, MX, NS, TXT, PTR</bdi>) مع قياس زمن الاستجابة، وفاحص منافذ متزامن (<bdi>20 اتصالاً في وقت واحد</bdi>) لكشف المنافذ المفتوحة وزمن مصافحتها. |
 | **تقارير الـ <bdi>PDF</bdi> الرسمية** | استخراج تقارير فنية عالية الدقة تحمل **شعار مسار الرسمي** وجداول مؤشرات الأداء والتقييم (<bdi>+A</bdi>) بصيغ **<bdi>PDF / HTML</bdi>** و **<bdi>CSV</bdi>** و **<bdi>JSON</bdi>** مع إشعار فوري بمسار حفظ الملف. |
-| **نظام الثيمات الاحترافي والواجهة ثنائية اللغة** | دعم أصيل للعربية (<bdi>RTL</bdi>) والإنجليزية (<bdi>LTR</bdi>)، مع **الوضع الداكن الاحترافي (<bdi>Carbon Slate</bdi>)** الخالي من التشتيت و**الوضع النهاري المريح للعين (<bdi>Soft Daylight</bdi>)**، وشاشة إقلاع تفاعلية مع نغمة اختيارية، وأيقونات <bdi>SVG</bdi> متجهة وتكبير مرن للواجهة (<bdi>85%–150%</bdi>). |
+| **نظام الثيمات الاحترافي والواجهة ثنائية اللغة** | دعم أصيل للعربية (<bdi>RTL</bdi>) والإنجليزية (<bdi>LTR</bdi>)، مع **الوضع الداكن الاحترافي (<bdi>Carbon Slate</bdi>)** الخالي من التشتيت و**الوضع النهاري المريح للعين (<bdi>Soft Daylight</bdi>)**، وشاشة إقلاع تفاعلية مع نغمة اختيارية، وأيقونات <bdi>SVG</bdi> متجهة، وشريط تحكم عمودي بالزاوية السفلية اليمنى للتكبير (<bdi>80%–150%</bdi>) واللغة والإعدادات. |
 
 ---
 
@@ -226,7 +226,7 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for full details
 > عرض حي لرحلة الحزم عبر 4 مراحل من جهازك حتى الوجهة النهائية في الوضع الداكن الاحترافي، مع جدول تفصيلي لكل قفزة ونسب الفقد ومنحنى الاستجابة لآخر 60 ثانية.
 
 <p align="center">
-  <img src="docs/screenshots/masar-arabic-light.png" alt="التتبع البصري للمسار باللغة العربية في الوضع الداكن" width="100%" />
+  <img src="docs/screenshots/masar-mtr-ar.png" alt="التتبع البصري للمسار باللغة العربية في الوضع الداكن" width="100%" />
 </p>
 
 ### 2. عدّاد قياس السرعة الدائري المباشر (الوضع الداكن)
