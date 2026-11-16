@@ -5,7 +5,7 @@
 # Masar · مسار
 
 <p align="center">
-  <strong>Native Windows Network Diagnostics, Hybrid L4 Visual MTR &amp; Speed Benchmark Suite</strong>
+  <strong>Native Windows Network Diagnostics, Visual MTR &amp; Speed Benchmark Suite</strong>
 </p>
 <p dir="rtl" align="center">
   <strong>أداة مكتبية احترافية لتشخيص الشبكة، وتتبع المسار البصري، وقياس السرعة بدقة لنظام ويندوز</strong>
@@ -13,7 +13,7 @@
 
 [![Latest Release](https://img.shields.io/badge/Release-v1.0.4-ef4444?style=for-the-badge&logo=github)](https://github.com/mhmdrfx/masar/releases/latest)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(x64)-0284c7?style=for-the-badge&logo=windows)](https://github.com/mhmdrfx/masar/releases/latest)
-[![Built With](https://img.shields.io/badge/Built%20With-Go%201.26%20%2B%20Wails%20v2-00ADD8?style=for-the-badge&logo=go)](https://wails.io)
+[![Built With](https://img.shields.io/badge/Built%20With-Go%201.23%20%2B%20Wails%20v2-00ADD8?style=for-the-badge&logo=go)](https://wails.io)
 [![License](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
 
 <p align="center">
@@ -40,9 +40,9 @@
 
 ## 🌐 Overview
 
-**Masar** is a lightweight, high-precision network diagnostics, route telemetry, and bandwidth benchmarking desktop application built natively for **Windows 10 / 11 (`x64`)**. Powered by a concurrent **Go** backend and a hardware-accelerated **Wails v2 / React** desktop interface, Masar unifies visual route tracing, encrypted DNS diagnostics, concurrent port & TLS auditing, and calibrated throughput testing in a single offline-capable workbench.
+**Masar** is a lightweight, high-precision network diagnostics, route telemetry, and speed benchmarking desktop application engineered natively for **Windows 10 / 11 (`x64`)**. Built on a concurrent **Go** backend and a hardware-accelerated **Wails v2 / React** interface, Masar replaces fragmented command-line utilities (`ping`, `tracert`, `nslookup`, `netstat`) with a unified visual workbench.
 
-Whether you are isolating ISP peering congestion versus harmless intermediate hop rate-limiting, measuring real line capacity with Bufferbloat grading, verifying DNSSEC / DoH resolution, or exporting printable PDF diagnostics reports, Masar delivers clear, engineering-grade telemetry in real time.
+Whether you are troubleshooting ISP routing bottlenecks, isolating real packet loss versus router ICMP rate-limiting, running deep multi-stream fiber speed benchmarks, or auditing DNS resolvers and TCP ports, Masar delivers actionable engineering telemetry in real time.
 
 ---
 
@@ -50,50 +50,36 @@ Whether you are isolating ISP peering congestion versus harmless intermediate ho
 
 | Module | Engineering Highlights |
 | :--- | :--- |
-| **Hybrid Visual MTR (`ICMP / TCP / UDP`)** | Concurrent hop dispatcher (`TTL 1–30` at `1s` cadence) supporting **ICMPv4**, **TCP SYN**, and **UDP** probing, reporting per-hop `Loss%`, `Sent/Recv`, `Last`, `Avg`, `Best/Worst`, `Jitter`, `60s` sparklines, **ITU-T G.107 E-Model MOS** (`1.0–4.5`), silent-router rate-limit filtering, and an interactive **5-Minute Rolling Timeline Canvas** with route-shift markers. |
-| **Calibrated Speedtest & Edge Matrix** | Races IPv4 and IPv6 POP candidates on startup (`speed.cloudflare.com`) to lock onto the lowest-RTT Anycast POP, supports **Multi** (`4–16` BDP-scaled HTTP/1.1 download and upload streams with bounded upload `SO_SNDBUF`) and **Single** (`1` stream) modes, measures pure **1-RTT `TCP SYN → SYN-ACK`** Idle/Loaded latency with **IQR outlier filtering** and a **20-Slice Trimmed Mean**, scores **Bufferbloat (`A+`–`F` + `p50/p95/p99`)**, and benchmarks 4 global Anycast edges (`1.1.1.1`, `8.8.8.8`, `9.9.9.9`, `208.67.222.222`). |
-| **DNS Inspector (`DoH` & `DNSSEC`)** | Concurrent lookup for `A`, `AAAA`, `CNAME`, `MX`, `NS`, `TXT`, `SOA`, `CAA`, and Reverse `PTR` records via the **System Resolver**, custom UDP upstreams, or encrypted **DNS-over-HTTPS (RFC 8484)** with **DNSSEC (`AD` bit)** validation status and query latency per record. |
-| **Concurrent Port Scanner & TLS Inspector** | 20-worker concurrent TCP handshake scanner with quick presets (`common`, `web`, `database`, `remote`) and custom ports/ranges (up to 128 ports per scan), paired with an **X.509 / TLS 1.3 Certificate & Handshake Inspector** showing negotiated protocol, cipher suite, chain trust, SANs, and expiry countdown. |
-| **Diagnostic Report Studio & Exports** | Native save-dialog exports for **Printable HTML / PDF** (MTR route reports and Speedtest Bufferbloat reports), **CSV** (UTF-8 BOM, formula-injection sanitized), **JSON**, **Plain-Text**, and an interactive modal with a complete **12-Metric Threshold Dictionary**. |
-| **Dual-Theme UI, Corner Dock & Offline Fonts** | Instant **English (`LTR`) / Arabic (`RTL`)** switching, **Carbon Slate Dark Mode** & **Soft Daylight Mode**, local bundled `@fontsource` fonts (`Inter`, `IBM Plex Sans Arabic`, `JetBrains Mono`) for crisp ClearType rendering without external requests, 60 FPS startup splash with optional harmonic chime, and a vertical bottom-right Corner Dock (**Zoom `80%–150%`**, **Language**, **Settings**). |
+| **Visual MTR & Route Tracer** | Concurrent low-level ICMPv4 Echo dispatcher (`TTL 1–30`) with per-hop `Loss%`, `Best`, `Avg`, `Worst`, `Last`, and `Jitter` metrics, automatic silent-router / rate-limit filtering, and shared TTL caches for PTR reverse DNS & Geo-IP/ASN lookups. |
+| **Ookla-Calibrated Speed Benchmark** | Calibrated bandwidth & latency engine supporting **Adaptive Multi-Connection** (4–12 HTTP/1.1 TCP download streams, 3–8 upload streams) and **Single-Connection** (`1 Stream`) modes, pure **1-RTT TCP Handshake (`SYN → SYN-ACK`) Idle Ping & IQR Outlier-Filtered Jitter**, warmup exclusion, **20-Slice Trimmed Mean** scoring, separate **Download & Upload Loaded Latency (Bufferbloat)**, and global Anycast CDN edge matrix (`Cloudflare`, `Google`, `Quad9`, `OpenDNS`). |
+| **Bottleneck & Anomaly Engine** | Automated root-cause heuristics that distinguish harmless control-plane ICMP throttling on intermediate hops from genuine downstream packet loss or ISP peering congestion. |
+| **DNS Inspector & Port Scanner** | Concurrent benchmarking across public and local gateway DNS resolvers (`A`, `AAAA`, `MX`, `TXT`, `NS`, `CNAME`, `PTR`) alongside a 20-worker concurrent TCP handshake port scanner with service detection. |
+| **Official PDF & Report Studio** | Native Windows save-dialog export generating official **Printable HTML / PDF** speed & route reports (featuring the Masar vector logo, telemetry charts, and Peak/Score breakdowns), plus **CSV** (injection-hardened), **JSON**, and **Plain-Text** formats. |
+| **Refined Dual-Theme & Bilingual UI** | Instant **English (LTR)** / **Arabic (RTL)** switching, zero-distraction **Carbon Slate Dark Mode** & anti-glare **Soft Daylight Mode**, executive startup splash with optional harmonic chime, 60 FPS GPU motion choreography, custom vector iconography, and titlebar zoom scaling (`85%–150%`). |
 
 ---
 
 ## 📸 Interface Preview
 
-### 1. Visual MTR, Protocol Selector & 5-Minute Rolling Timeline
-> Hybrid `ICMP / TCP / UDP` route diagnostics (`TTL 1–30`) featuring the 4-stage network path breakdown (`This Device → Local Gateway → ISP Backbone → Target`), Connection Health Score, export shortcuts, and the live **5-Minute Interactive Timeline**.
+### 1. Visual MTR & Route Architecture (Dark Mode)
+> Real-time ICMPv4 route tracing with per-hop latency telemetry, 4-stage packet topology (`Device → Local Gateway → ISP Backbone → Destination`), jitter trends, and Geo-IP / ASN attribution.
 
 <p align="center">
-  <img src="docs/screenshots/masar-mtr-en.jpg" alt="Masar Visual MTR and Interactive 5-Minute Timeline in English Dark Mode" width="100%" />
+  <img src="docs/screenshots/masar-mtr-dark.png" alt="Masar Visual MTR Dark Mode" width="100%" />
 </p>
 
-### 2. DNS Record, DoH & Reverse PTR Inspector
-> Concurrent querying of `A`, `AAAA`, `CNAME`, `MX`, `NS`, and `TXT / PTR / SOA` records with a selectable resolver (`System`, `1.1.1.1`, `8.8.8.8`, `9.9.9.9`, or custom IP) and encrypted **DoH** toggle.
+### 2. Speedtest-Style Live Circular Dial Gauge
+> Spacious 280px live dial gauge saturating Gigabit+ lines with 12 concurrent Download streams and 8 concurrent Upload streams via `speed.cloudflare.com` Anycast edges.
 
 <p align="center">
-  <img src="docs/screenshots/masar-dns-en.png" alt="Masar DNS Record and DoH Inspector in English" width="100%" />
+  <img src="docs/screenshots/masar-speed-dial.png" alt="Masar Speed Benchmark Live Dial Gauge" width="100%" />
 </p>
 
-### 3. Concurrent TCP Port Scanner & TLS / SSL Certificate Inspector
-> Multi-preset TCP port scanner (`common`, `web`, `database`, `remote`, or custom ranges) integrated alongside the **TLS / SSL (`X.509 / TLS 1.3`)** handshake and certificate validity inspector.
+### 3. Certified Speed Scorecard & Bufferbloat Telemetry
+> Final sustained Speedtest-standard scorecards (with **Peak (Max Speed)** clarity, **Idle vs. Loaded Ping**, **Grade A+**, 1-click **PDF Report** export, and live Anycast edge response comparison).
 
 <p align="center">
-  <img src="docs/screenshots/masar-ports-en.png" alt="Masar Concurrent TCP Port Scanner and TLS Inspector in English" width="100%" />
-</p>
-
-### 4. Speedtest • Bandwidth & Anycast Edge Latency
-> Dedicated Speedtest workbench displaying Download, Upload, and Idle Ping telemetry cards, `Multi / Single` TCP mode selector, auto-detected ISP & Anycast POP card, and the 4-provider Global Edge Latency Matrix.
-
-<p align="center">
-  <img src="docs/screenshots/masar-speed-en.jpg" alt="Masar Speedtest Bandwidth and Edge Latency View in English" width="100%" />
-</p>
-
-### 5. Diagnostic Report Studio & 12-Metric Data Guide
-> Interactive Report Studio modal offering one-click `PDF / HTML`, `JSON`, `CSV`, and text exports alongside a structured **12-Metric Dictionary** detailing Healthy, Warning, and Critical thresholds for every extracted indicator.
-
-<p align="center">
-  <img src="docs/screenshots/masar-report-studio-en.jpg" alt="Masar Diagnostic Report Studio and 12-Metric Guide in English" width="100%" />
+  <img src="docs/screenshots/masar-speed-dark.png" alt="Masar Speed Benchmark Complete Scorecard" width="100%" />
 </p>
 
 ---
@@ -102,13 +88,13 @@ Whether you are isolating ISP peering congestion versus harmless intermediate ho
 
 ### Standard Installer (Recommended)
 
-1. Download [**`Masar-Setup.exe`**](https://github.com/mhmdrfx/masar/releases/latest) from the [GitHub Releases](https://github.com/mhmdrfx/masar/releases/latest) page (and optionally verify it against `Masar-Setup.exe.sha256`).
+1. Download [**`Masar-Setup.exe`**](https://github.com/mhmdrfx/masar/releases/latest) from the [GitHub Releases](https://github.com/mhmdrfx/masar/releases/latest) page.
 2. Run **`Masar-Setup.exe`** and follow the setup wizard (configures Desktop & Start Menu shortcuts, `AppUserModelID`, and checks Microsoft Edge WebView2 runtime).
-3. Launch **Masar** from your Desktop or Start Menu (`Run as Administrator` is optional and improves raw socket capture coverage where needed).
+3. Launch **Masar** from your Desktop or Start Menu (`Run as Administrator` is supported for raw ICMP socket access).
 
 ### Windows Package Manager (`winget`)
 
-> **Status note:** The initial package submission for `mhmdrfx.Masar` is currently awaiting moderator approval in `microsoft/winget-pkgs` ([PR #476844](https://github.com/microsoft/winget-pkgs/pull/476844)). Once merged, you can install or upgrade directly from PowerShell or Windows Terminal:
+Install or upgrade Masar directly from PowerShell or Windows Terminal:
 
 ```powershell
 # Install Masar
@@ -123,9 +109,9 @@ winget upgrade mhmdrfx.Masar
 ## 🛠️ Building from Source
 
 ### Prerequisites
-- **Go** `1.26+`
-- **Node.js** `22+` & `npm`
-- **Wails CLI** `v2` (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** `1.23+`
+- **Node.js** `20+` & `npm`
+- **Wails CLI** `v2.11+` (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
 - **NSIS** `3.x` (required only when building `Masar-Setup.exe`)
 
 ### Build Commands
@@ -154,32 +140,23 @@ The compiled executable (`masar.exe`) and setup wizard (`Masar-Setup.exe`) will 
 
 ```text
 masar/
-├── app.go                                   # Wails application lifecycle, IPC bindings & updater hooks
-├── app_windows.go / app_other.go            # Windows AppUserModelID (mhmdrfx.Masar) & platform hooks
-├── main.go                                  # Native window configuration & asset embedding
-├── report_export.go                         # Native save-dialog & HTML/CSV/TXT Visual MTR report engine
-├── report_speed.go                          # Speed Benchmark HTML/PDF report generator with Bufferbloat tables
-├── updater.go / updater_windows.go          # In-app GitHub release checker & SHA-256 verified updater
+├── app.go                              # Wails application lifecycle, IPC bindings & updater hooks
+├── app_windows.go                      # Windows AppUserModelID (mhmdrfx.Masar) & taskbar registration
+├── main.go                             # Native window configuration & asset embedding
+├── report_export.go                    # Native save-dialog & HTML/CSV/TXT Visual MTR report engine
+├── report_speed.go                     # Official Speed Benchmark PDF/HTML report generator with vector emblem
+├── updater.go / updater_windows.go     # Clean in-app SHA-256 verified auto-updater
 ├── internal/
-│   ├── mtr/
-│   │   ├── mtr.go / probe_windows.go        # Concurrent ICMPv4 tracer, E-Model MOS, silent-router & Geo/ASN cache
-│   │   └── probe_l4.go / probe_l4_windows.go# Layer-4 TCP & UDP hop probes
-│   └── nettools/
-│       ├── nettools.go                      # IPv4/IPv6 POP race, BDP-scaled speedtest, 1-RTT ping & port scan
-│       └── advanced_tools.go                # DoH/DNSSEC resolver, custom port specs, Bufferbloat & TLS inspector
+│   ├── mtr/                            # Concurrent ICMPv4 tracer, silent-router filter, Geo/ASN cache
+│   └── nettools/                       # 12x/8x Speedtest benchmark, DNS inspector & TCP port scanner
 ├── frontend/
 │   └── src/
-│       ├── App.jsx                          # Bilingual workbench UI (MTR, DNS, Ports, Speedtest & Corner Dock)
-│       ├── main.jsx & style.css             # Bundled @fontsource fonts & Carbon Dark / Soft Daylight themes
-│       ├── ReportStudio.jsx                 # Report format builders & 12-metric dictionary definitions
-│       ├── ReportStudioModal.jsx            # Lazy-loaded Report Studio preview & export modal
-│       ├── UpdateManager.jsx                # In-app GitHub release checker & SHA-256 installer
-│       ├── components/
-│       │   ├── MtrTimelineCanvas.jsx        # Interactive 5-minute rolling MTR timeline Canvas
-│       │   └── TlsInspectorCard.jsx         # X.509 / TLS 1.3 handshake & certificate expiry card
-│       └── motion/                          # 60 FPS GPU motion choreography, Lottie & CSS tokens
-├── docs/screenshots/                        # High-resolution English & Arabic UI screenshots
-└── build/windows/installer/project.nsi      # Custom NSIS installer script (Masar-Setup.exe)
+│       ├── App.jsx                     # Bilingual workbench UI (MTR, DNS, Ports, Speed Dial & Scorecard)
+│       ├── ReportStudio.jsx            # Interactive report preview & export modal
+│       ├── UpdateManager.jsx           # In-app GitHub release checker & SHA-256 installer
+│       └── motion/                     # 60 FPS GPU motion choreography & tokens
+├── docs/screenshots/                   # Retina PNG interface captures (Dark Mode)
+└── build/windows/installer/project.nsi # Custom NSIS installer script (Masar-Setup.exe)
 ```
 
 ---
@@ -196,10 +173,10 @@ Every official release binary (`Masar-Setup.exe`) is built exclusively from this
 
 ### Privacy Policy
 Masar will **not** transfer any information to networked systems unless explicitly initiated by the user:
-- **Route Tracing (MTR):** Sends ICMPv4, TCP, or UDP probes solely to the user-entered host and resolves public hop Geo-IP/ASN metadata via `ip-api.com`.
-- **Speed Benchmark:** Measures throughput against `speed.cloudflare.com` (selecting the lowest-RTT IPv4/IPv6 POP) and latency against public edge endpoints (`1.1.1.1:443`, `8.8.8.8:443`, `9.9.9.9:443`, `208.67.222.222:443`).
-- **DNS, Port & TLS Inspector:** Queries only the chosen upstream (`System Resolver`, custom UDP server, or user-enabled DoH provider) and connects solely to the target host and ports entered by the user.
-- **Updates:** Checks GitHub Releases on user request and verifies downloads with SHA-256 checksums.
+- **Route Tracing (MTR):** Sends ICMP probes solely to the user-entered host and resolves public hop Geo-IP/ASN metadata via `ip-api.com`.
+- **Speed Benchmark:** Measures throughput against `speed.cloudflare.com` and latency against public DNS edges (Cloudflare, Google, Quad9, OpenDNS).
+- **DNS Inspector & Port Scanner:** Queries only the selected resolvers and user-specified targets.
+- **Updates:** Verifies official GitHub releases using SHA-256 checksums with full user control.
 
 Masar contains **zero** third-party telemetry, tracking, analytics, or advertising. Diagnostic reports are saved locally only.
 
@@ -223,9 +200,9 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for full details
 
 ## 🧭 نظرة عامة
 
-**مسار (<bdi>Masar</bdi>)** هو تطبيق مكتبي احترافي خفيف وعالي الدقة لتشخيص الشبكات، وتتبع المسار البصري، وفحص السجلات والمنافذ والشهادات، وقياس سرعة الإنترنت، طُوّر أصلياً لنظام **<bdi>Windows 10 / 11 (x64)</bdi>** بلغة **<bdi>Go</bdi>** وإطار **<bdi>Wails v2 / React</bdi>**. يجمع التطبيق بين الأداء المباشر على مستوى النظام وواجهة حديثة ثنائية اللغة تعمل محلياً وتغنيك عن تشتت أدوات سطر الأوامر التقليدية (`ping`، `tracert`، `nslookup`، `netstat`).
+**مسار (<bdi>Masar</bdi>)** هو تطبيق مكتبي احترافي خفيف وعالي الدقة لتشخيص الشبكات، وتتبع المسار البصري، وقياس سرعة الإنترنت، صُمّم وطُوّر خصيصاً لنظام **<bdi>Windows 10 / 11 (x64)</bdi>** بلغة **<bdi>Go</bdi>** وإطار **<bdi>Wails v2</bdi>**. يجمع البرنامج بين سرعة الأداء الأصلي على مستوى النظام وواجهة رسومية حديثة تغنيك تماماً عن أدوات سطر الأوامر التقليدية المتفرقة مثل `<bdi>ping</bdi>` و `<bdi>tracert</bdi>` و `<bdi>nslookup</bdi>`.
 
-سواء كنت تبحث عن سبب تذبذب البينغ في الألعاب، أو تمييز الفقدان الحقيقي للحزم عن تجاهل الراوترات الوسيطة، أو قياس السرعة والـ <bdi>Bufferbloat</bdi> بدقة واستخراج تقارير <bdi>PDF / HTML</bdi> احترافية لمزود الخدمة، يمنحك **مسار** تشخيصاً فورياً وموثوقاً.
+سواء كنت تبحث عن سبب ارتفاع البينغ في الألعاب التنافسية، أو تريد التمييز بين الفقدان الحقيقي للحزم وتجاهل الراوترات الوسيطة، أو قياس السعة الحقيقية لخط الألياف والـ <bdi>5G</bdi> وفق معايير <bdi>Speedtest</bdi> واستخراج تقرير <bdi>PDF</bdi> رسمي لتقديمه لمزود الخدمة، فإن **مسار** يمنحك قراءة هندسية فورية ودقيقة.
 
 ---
 
@@ -233,50 +210,37 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for full details
 
 | الوحدة | التفاصيل التقنية وآلية الفحص |
 | :--- | :--- |
-| **تتبع المسار البصري الهجين (<bdi>ICMP / TCP / UDP</bdi>)** | إرسال نبضات فحص كل ثانية عبر القفزات (`TTL 1–30`) باختيار بروتوكول **`ICMP`** أو **`TCP`** أو **`UDP`**، مع عرض نسبة الفقد، والمُرسل/المستلم، وأفضل/متوسط/أسوأ/آخر استجابة، والتذبذب (`Jitter`)، ومنحنى آخر 60 ثانية، ومقياس جودة المكالمات **`MOS` (`1.0–4.5`)**، وتصفية تجاهل الراوترات الصامتة، و**الخط الزمني التفاعلي طويل المدى (5 دقائق)** مع مؤشرات تغيّر المسار. |
-| **قياس السرعة المعاير وحواف <bdi>Anycast</bdi>** | سباق فوري بين **`IPv4` و`IPv6`** لتثبيت أقرب خادم `Cloudflare Anycast CDN` بأقل زمن استجابة، ودعم **متعدد القنوات** (`4–16` قناة `TCP HTTP/1.1` مكيّفة حسب الـ BDP للتحميل والرفع مع ضبط `SO_SNDBUF`) أو **قناة واحدة**، وقياس نقي لزمن الاستجابة عبر مصافحة **`1-RTT TCP SYN → SYN-ACK`** وتصفية **`IQR`**، و**متوسط 20 شريحة مشذّب**، مع تقييم **`Bufferbloat` (`A+` إلى `F` والنسب المئوية `p50/p95/p99`)** ومقارنة 4 خوادم سحابية عالمية. |
-| **فاحص سجلات النطاقات (<bdi>DNS / DoH / DNSSEC</bdi>)** | استعلام متوازٍ لسجلات **`A` و`AAAA` و`CNAME` و`MX` و`NS` و`TXT` و`SOA` و`CAA`** والفحص العكسي **`PTR`** عبر **خادم النظام** أو خوادم `UDP` مخصصة أو **DNS-over-HTTPS (`DoH`)** المشفر مع التحقق من توقيع **`DNSSEC` (`AD bit`)**. |
-| **فاحص المنافذ المتوازي وفاحص شهادات <bdi>TLS / SSL</bdi>** | فاحص منافذ `TCP` متزامن (`20` اتصالاً متوازياً) مع قوالب جاهزة (`common`، `web`، `database`، `remote`) وإمكانية إدخال منافذ أو نطاقات مخصصة، مدمج مع بطاقة **فاحص شهادات `TLS 1.3 / X.509`** لعرض بروتوكول التفاوض، وخوارزمية التشفير، وسلسلة الثقة، والأسماء المشمولة (`SANs`)، والأيام المتبقية لانتهاء الشهادة. |
-| **مركز التقارير الاحترافية والتصدير** | نافذة حفظ أصلية في ويندوز لتصدير تقارير **<bdi>HTML / PDF</bdi>** رسمية (لتتبع المسار ولقياس السرعة مع جداول `Bufferbloat`)، وملفات **<bdi>CSV</bdi>** متوافقة مع Excel (`UTF-8 BOM`) ومحصّنة، وملفات **<bdi>JSON</bdi>** والنص الشامل، مع **دليل تفصيلي تفاعلي لـ 12 مؤشراً**. |
-| **الثيمات ووضوح الخطوط وشريط الزاوية** | تبديل فوري بين العربية (`RTL`) والإنجليزية (`LTR`)، والوضع الداكن (**`Carbon Slate`**) والوضع النهاري المريح (**`Soft Daylight`**)، مع تضمين خطوط `@fontsource` محلياً (`Inter` و`IBM Plex Sans Arabic` و`JetBrains Mono`) لوضوح مثالي دون اعتماد على الإنترنت، وشاشة إقلاع انسيابية، وشريط تحكم عمودي في الزاوية السفلية اليمنى (**التكبير `80%–150%`**، **اللغة**، **الإعدادات**). |
+| **فحص السرعة المعاير (<bdi>Ookla-Calibrated Speedtest</bdi>)** | فحص تكيّفي بمعايير <bdi>Ookla Speedtest</bdi> يدعم **نمط القنوات المتعددة (<bdi>Multi-Connection</bdi> من 4 إلى 12 قناة <bdi>TCP HTTP/1.1</bdi> للتحميل و3 إلى 8 للرفع)** ونمط **القناة الواحدة (<bdi>Single-Connection</bdi>)** عبر حواف <bdi>Cloudflare Anycast</bdi>. |
+| **دقة استجابة الخمول والتذبذب والـ <bdi>Bufferbloat</bdi>** | قياس نقي لزمن الاستجابة والتذبذب عبر مصافحة <bdi>1-RTT TCP SYN → SYN-ACK</bdi> مباشرة مع فلترة إحصائية رباعية (<bdi>IQR Outlier Rejection</bdi>) لعزل القفزات العابرة، وحساب **متوسط 20 شريحة مشذّب** بعد استبعاد الإحماء، مع قياس منفصل للاستجابة أثناء التحميل والرفع (<bdi>Download / Upload Ping</bdi>). |
+| **تتبع المسار البصري (<bdi>Visual MTR</bdi>)** | إرسال حزم <bdi>ICMPv4 Echo</bdi> منخفضة المستوى لكل قفزة (<bdi>TTL 1–30</bdi>) مع حساب أفضل ومتوسط وأسوأ وآخر استجابة، والتذبذب (<bdi>Jitter</bdi>)، ونسبة الفقد، والموقع الجغرافي واسم مزود الخدمة (<bdi>Geo-IP / ASN</bdi>). |
+| **محرك تصفية الراوترات الصامتة** | خوارزمية تحليل تلقائية تميّز بذكاء بين التجاهل الطبيعي لردود <bdi>ICMP</bdi> في قفزات العبور وبين فقدان الحزم أو الاختناق الحقيقي الذي يؤثر على اتصالك. |
+| **مقارنة <bdi>DNS</bdi> وفاحص المنافذ (<bdi>TCP Ports</bdi>)** | استعلام متوازٍ لسجلات النطاقات (<bdi>A, AAAA, CNAME, MX, NS, TXT, PTR</bdi>) مع قياس زمن الاستجابة، وفاحص منافذ متزامن (<bdi>20 اتصالاً في وقت واحد</bdi>) لكشف المنافذ المفتوحة وزمن مصافحتها. |
+| **تقارير الـ <bdi>PDF</bdi> الرسمية** | استخراج تقارير فنية عالية الدقة تحمل **شعار مسار الرسمي** وجداول مؤشرات الأداء والتقييم (<bdi>+A</bdi>) بصيغ **<bdi>PDF / HTML</bdi>** و **<bdi>CSV</bdi>** و **<bdi>JSON</bdi>** مع إشعار فوري بمسار حفظ الملف. |
+| **نظام الثيمات الاحترافي والواجهة ثنائية اللغة** | دعم أصيل للعربية (<bdi>RTL</bdi>) والإنجليزية (<bdi>LTR</bdi>)، مع **الوضع الداكن الاحترافي (<bdi>Carbon Slate</bdi>)** الخالي من التشتيت و**الوضع النهاري المريح للعين (<bdi>Soft Daylight</bdi>)**، وشاشة إقلاع تفاعلية مع نغمة اختيارية، وأيقونات <bdi>SVG</bdi> متجهة وتكبير مرن للواجهة (<bdi>85%–150%</bdi>). |
 
 ---
 
 ## 📸 معاينة واجهة البرنامج
 
-### 1. تتبع المسار البصري والخط الزمني التفاعلي (5 دقائق)
-> واجهة الفحص البصري مع أزرار اختيار البروتوكول (**`ICMP` / `TCP` / `UDP`**)، وخريطة المراحل الأربع (`جهازك ← الراوتر المحلي ← بوابة المزود ← الوجهة النهائية`)، ومؤشر جودة الاتصال، وأزرار التصدير الفورية، والخط الزمني التفاعلي طويل المدى.
+### 1. قياس السرعة والنتيجة النهائية الشاملة (الوضع الداكن)
+> عرض السرعة المستقرة للتحميل والرفع مع **الذروة (أعلى سرعة)**، والاستجابة في الخمول وأثناء التحميل والرفع، والتقييم العام (<bdi>+A</bdi>)، وزر استخراج تقرير <bdi>PDF</bdi>، مع إمكانية التبديل بين **متعدد القنوات** و**قناة واحدة**.
 
 <p align="center">
-  <img src="docs/screenshots/masar-mtr-ar.jpg" alt="واجهة تتبع المسار البصري باللغة العربية في مسار" width="100%" />
+  <img src="docs/screenshots/masar-speed-ar.png" alt="قياس السرعة في تطبيق مسار باللغة العربية في الوضع الداكن" width="100%" />
 </p>
 
-### 2. فاحص سجلات النطاقات (`DNS / DoH`) والفحص العكسي
-> استعلام متزامن لسجلات `A` و`AAAA` و`CNAME` و`MX` و`NS` و`TXT / PTR / SOA` مع اختيار المحلل (`System` أو `1.1.1.1` أو `8.8.8.8` أو `9.9.9.9` أو عنوان مخصص) وزر تفعيل الاستعلام المشفر **`DoH`**.
+### 2. تتبع المسار البصري والخريطة الشبكية (الوضع الداكن)
+> عرض حي لرحلة الحزم عبر 4 مراحل من جهازك حتى الوجهة النهائية في الوضع الداكن الاحترافي، مع جدول تفصيلي لكل قفزة ونسب الفقد ومنحنى الاستجابة لآخر 60 ثانية.
 
 <p align="center">
-  <img src="docs/screenshots/masar-dns-ar.png" alt="فاحص سجلات النطاقات و DoH باللغة العربية في مسار" width="100%" />
+  <img src="docs/screenshots/masar-arabic-light.png" alt="التتبع البصري للمسار باللغة العربية في الوضع الداكن" width="100%" />
 </p>
 
-### 3. فاحص المنافذ المتوازي وفاحص شهادات `TLS / SSL`
-> فحص سريع لقوالب المنافذ القياسية (`common`، `web`، `database`، `remote`) أو نطاقات مخصصة، وبأسفله مباشرة وحدة فحص تفاوض التشفير وشهادات **`X.509 / TLS 1.3`**.
+### 3. مركز التقارير الاحترافية وشرح المؤشرات (الوضع الداكن)
+> مركز متكامل يترجم أرقام الفحص إلى توصيات واضحة لتقييم الألعاب التنافسية والمكالمات الصوتية وبث <bdi>4K</bdi>، مع خيارات التصدير الرسمية المتعددة.
 
 <p align="center">
-  <img src="docs/screenshots/masar-ports-ar.png" alt="فاحص المنافذ المتوازي وفاحص شهادات TLS باللغة العربية" width="100%" />
-</p>
-
-### 4. واجهة قياس السرعة الاحترافي ومصفوفة الحواف العالمية
-> واجهة اختبار السرعة الدائرية مع بطاقات التحميل والرفع واستجابة الخمول والتذبذب، واختيار نمط الاتصال (`متعدد القنوات` / `قناة واحدة`)، وكشف مزود الخدمة والخادم المستضاف تلقائياً مع مصفوفة استجابة الحواف العالمية (`Cloudflare` و`Google` و`Quad9` و`OpenDNS`).
-
-<p align="center">
-  <img src="docs/screenshots/masar-speed-ar.png" alt="واجهة قياس السرعة في مسار باللغة العربية" width="100%" />
-</p>
-
-### 5. مركز التقارير الاحترافية والدليل الشامل للمؤشرات
-> مركز متكامل يعرض ملخص الفحص الحي، وخيارات التصدير الرسمية (`نسخ النص`، `PDF / HTML`، `JSON`، `CSV`)، وشرحاً تفصيلياً لكل مؤشر من المؤشرات الـ 12 مع النطاق السليم ونطاق التحذير والنطاق الحرج.
-
-<p align="center">
-  <img src="docs/screenshots/masar-report-studio-ar.jpg" alt="مركز التقارير الاحترافية باللغة العربية في مسار" width="100%" />
+  <img src="docs/screenshots/masar-report-studio.png" alt="مركز التقارير الاحترافية في مسار في الوضع الداكن" width="100%" />
 </p>
 
 ---
@@ -284,13 +248,12 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for full details
 ## 🚀 طريقة التثبيت والتحديث
 
 ### الطريقة الأولى: المثبت الرسمي (موصى بها)
-1. قم بتحميل المثبت الرسمي [**<bdi>Masar-Setup.exe</bdi>**](https://github.com/mhmdrfx/masar/releases/latest) من صفحة [الإصدارات](https://github.com/mhmdrfx/masar/releases/latest) (مع توفر ملف التحقق `Masar-Setup.exe.sha256`).
-2. شغّل ملف **<bdi>Masar-Setup.exe</bdi>** واتبع خطوات معالج التثبيت؛ حيث ينشئ اختصارات سطح المكتب وقائمة ابدأ ويسجّل هوية التطبيق في شريط المهام ويتحقق من وجود بيئة <bdi>WebView2</bdi>.
-3. افتح برنامج **مسار** مباشرة وابدأ الفحص فوراً (يدعم التشغيل كمسؤول لتوسيع تغطية فحص حزم الشبكة المباشرة عند الحاجة).
+1. قم بتحميل المثبت الرسمي [**<bdi>Masar-Setup.exe</bdi>**](https://github.com/mhmdrfx/masar/releases/latest) من صفحة [الإصدارات](https://github.com/mhmdrfx/masar/releases/latest).
+2. شغّل ملف **<bdi>Masar-Setup.exe</bdi>** واتبع خطوات معالج التثبيت؛ حيث يقوم بإنشاء اختصارات سطح المكتب وقائمة ابدأ وتسجيل هوية التطبيق في شريط المهام والتحقق من وجود بيئة <bdi>WebView2</bdi>.
+3. افتح برنامج **مسار** مباشرة وابدأ الفحص فوراً (يدعم التشغيل كمسؤول لقراءة حزم <bdi>ICMP</bdi> المباشرة).
 
 ### الطريقة الثانية: عبر مدير حزم ويندوز (<bdi>winget</bdi>)
-
-> **ملاحظة:** طلب إدراج الحزمة `mhmdrfx.Masar` قيد المراجعة النهائية حالياً في مستودع `microsoft/winget-pkgs` ([PR #476844](https://github.com/microsoft/winget-pkgs/pull/476844)). فور اعتماده ودمجه ستتمكن من التثبيت والتحديث مباشرة عبر <bdi>PowerShell</bdi>:
+يمكنك تثبيت البرنامج أو تحديثه إلى آخر إصدار بأمر واحد من نافذة الأوامر أو <bdi>PowerShell</bdi>:
 
 ```powershell
 # لتثبيت مسار
@@ -305,9 +268,9 @@ winget upgrade mhmdrfx.Masar
 ## 🛠️ البناء من المصدر (للمطورين)
 
 ### المتطلبات الأساسية
-- **<bdi>Go</bdi>** إصدار `1.26+`
-- **<bdi>Node.js</bdi>** إصدار `22+` مع `<bdi>npm</bdi>`
-- **<bdi>Wails CLI</bdi>** إصدار `v2` عبر الأمر: `<bdi>go install github.com/wailsapp/wails/v2/cmd/wails@latest</bdi>`
+- **<bdi>Go</bdi>** إصدار `1.23+`
+- **<bdi>Node.js</bdi>** إصدار `20+` مع `<bdi>npm</bdi>`
+- **<bdi>Wails CLI</bdi>** إصدار `v2.11+` عبر الأمر: `<bdi>go install github.com/wailsapp/wails/v2/cmd/wails@latest</bdi>`
 - **<bdi>NSIS</bdi>** إصدار `3.x` (مطلوب فقط عند بناء ملف التثبيت `<bdi>Masar-Setup.exe</bdi>`)
 
 ### أوامر البناء والتشغيل
@@ -336,32 +299,23 @@ wails build -nsis -s
 
 ```text
 masar/
-├── app.go                                   # إدارة دورة حياة التطبيق والربط البرمجي (Wails IPC)
-├── app_windows.go / app_other.go            # تعريف هوية التطبيق في شريط مهام ويندوز (AppUserModelID)
-├── main.go                                  # إعدادات النافذة الرئيسية وتضمين الموارد
-├── report_export.go                         # محرك حفظ وتصدير تقارير تتبع المسار (HTML / CSV / TXT)
-├── report_speed.go                          # محرك تقارير فحص السرعة الرسمية (PDF / HTML) وجداول Bufferbloat
-├── updater.go / updater_windows.go          # نظام التحديث الآمن والتحقق ببصمة SHA-256
+├── app.go                              # إدارة دورة حياة التطبيق والربط البرمجي (Wails IPC)
+├── app_windows.go                      # تعريف هوية التطبيق في شريط مهام ويندوز (AppUserModelID)
+├── main.go                             # إعدادات النافذة الرئيسية وتضمين الموارد
+├── report_export.go                    # محرك حفظ وتصدير تقارير تتبع المسار (HTML / CSV / TXT)
+├── report_speed.go                     # محرك إنشاء تقارير فحص السرعة الرسمية (PDF / HTML) بالشعار
+├── updater.go / updater_windows.go     # نظام التحديث التلقائي الآمن والتحقق ببصمة SHA-256
 ├── internal/
-│   ├── mtr/
-│   │   ├── mtr.go / probe_windows.go        # محرك ICMPv4، وحساب MOS، وتصفية القفزات الصامتة، وذاكرة Geo/ASN
-│   │   └── probe_l4.go / probe_l4_windows.go# وحدة فحص مسار TCP و UDP على الطبقة الرابعة
-│   └── nettools/
-│       ├── nettools.go                      # سباق IPv4/IPv6 POP، فحص السرعة بـ BDP، بينغ 1-RTT، وفاحص المنافذ
-│       └── advanced_tools.go                # محلل DoH/DNSSEC، قوالب المنافذ المخصصة، Bufferbloat وفاحص TLS
+│   ├── mtr/                            # محرك فحص ICMPv4، وتصفية القفزات الصامتة، وذاكرة Geo/ASN
+│   └── nettools/                       # محرك فحص السرعة (12/8 قنوات)، وفاحص DNS والمنافذ
 ├── frontend/
 │   └── src/
-│       ├── App.jsx                          # الواجهة الرئيسية ثنائية اللغة وشريط الزاوية السفلي
-│       ├── main.jsx & style.css             # خطوط @fontsource المدمجة وثيمي Carbon Slate و Soft Daylight
-│       ├── ReportStudio.jsx                 # بناء صيغ التقارير وتعريفات قاموس الـ 12 مؤشراً
-│       ├── ReportStudioModal.jsx            # نافذة مركز التقارير الاحترافية بالتحميل الكسول (Lazy Modal)
-│       ├── UpdateManager.jsx                # واجهة التحقق من التحديثات والتثبيت الآمن
-│       ├── components/
-│       │   ├── MtrTimelineCanvas.jsx        # لوحة الخط الزمني التفاعلي طويل المدى (5 دقائق)
-│       │   └── TlsInspectorCard.jsx         # بطاقة فحص شهادات TLS 1.3 / X.509
-│       └── motion/                          # محرك الانميشن السلس 60 FPS وأصول Lottie
-├── docs/screenshots/                        # لقطات شاشة حديثة عالية الدقة للواجهتين العربية والإنجليزية
-└── build/windows/installer/project.nsi      # سكربت بناء المثبت الرسمي (Masar-Setup.exe)
+│       ├── App.jsx                     # الواجهة الرئيسية ثنائية اللغة (MTR، DNS، المنافذ، السرعة)
+│       ├── ReportStudio.jsx            # نافذة معاينة التقارير وشرح جميع المؤشرات
+│       ├── UpdateManager.jsx           # واجهة التحقق من التحديثات والتثبيت الآمن
+│       └── motion/                     # محرك الانميشن السلس بسرعة 60 إطاراً في الثانية
+├── docs/screenshots/                   # لقطات شاشة حديثة عالية الدقة لواجهة التطبيق بالوضع الداكن
+└── build/windows/installer/project.nsi # سكربت بناء المثبت الرسمي (Masar-Setup.exe)
 ```
 
 ---
@@ -375,9 +329,9 @@ masar/
 
 ### سياسة الخصوصية (<bdi>Privacy Policy</bdi>)
 برنامج **مسار** لا يرسل أو ينقل أي بيانات من جهازك إلى أي خادم خارجي إلا عند طلبك المباشر لبدء الفحص:
-* **تتبع المسار (<bdi>Visual MTR</bdi>):** يرسل حزم `ICMPv4` أو `TCP` أو `UDP` للوجهة التي تحددها فقط، ويستعلم عن الموقع الجغرافي لعناوين الشبكة العامة عبر `<bdi>ip-api.com</bdi>`.
-* **فحص السرعة (<bdi>Speed Benchmark</bdi>):** يقيس السرعة عبر `<bdi>speed.cloudflare.com</bdi>` (مع اختيار أقرب POP عبر IPv4/IPv6)، ويقيس زمن الاستجابة لحواف DNS العالمية (`1.1.1.1:443`، `8.8.8.8:443`، `9.9.9.9:443`، `208.67.222.222:443`).
-* **فاحص <bdi>DNS</bdi> والمنافذ وشهادات <bdi>TLS</bdi>:** يتصل فقط بالمحلل الذي تختاره (خادم النظام أو UDP أو DoH) وبالأهداف والمنافذ التي تُدخلها يدوياً.
+* **تتبع المسار (<bdi>Visual MTR</bdi>):** يرسل حزم <bdi>ICMP</bdi> للوجهة التي تحددها فقط، ويستعلم عن الموقع الجغرافي لعناوين الشبكة العامة عبر `<bdi>ip-api.com</bdi>`.
+* **فحص السرعة (<bdi>Speed Benchmark</bdi>):** يقيس سرعة التحميل والرفع عبر `<bdi>speed.cloudflare.com</bdi>` وزمن الاستجابة لخوادم <bdi>DNS</bdi> العامة المذكورة.
+* **فاحص المنافذ و <bdi>DNS</bdi>:** يتصل فقط بالخوادم والأهداف التي تُدخلها يدوياً.
 * **التحديثات:** تتحقق من وجود إصدارات جديدة عبر GitHub بموافقتك الكاملة ومع التحقق من بصمة الملف (`SHA-256`).
 
 لا يحتوي التطبيق على أي أكواد تتبع، أو إعلانات، أو جمع بيانات مخفي؛ وتُحفظ كافة التقارير محلياً على جهازك فقط.
