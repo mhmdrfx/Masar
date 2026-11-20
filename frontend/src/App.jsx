@@ -952,10 +952,14 @@ function MasarStartupSplash({
               style={{ color: isLight ? "#0f172a" : "#f8fafc" }}
             >
               <span
-                className="tracking-wider bg-gradient-to-r from-sky-400 via-blue-500 to-emerald-400 bg-clip-text text-transparent"
-                dir="ltr"
+                className={
+                  isAr
+                    ? "bg-gradient-to-r from-sky-400 via-blue-500 to-emerald-400 bg-clip-text text-transparent"
+                    : "tracking-wider bg-gradient-to-r from-sky-400 via-blue-500 to-emerald-400 bg-clip-text text-transparent"
+                }
+                dir={isAr ? "rtl" : "ltr"}
               >
-                MASAR
+                {isAr ? "مسار" : "MASAR"}
               </span>
             </h1>
             <span
@@ -1210,7 +1214,7 @@ function MasarStartupSplash({
 }
 
 /* Miniature Visual Preview Screenshot of Masar UI (Dark Mode vs White Mode) */
-function ThemePreviewMiniUI({ mode = "dark", versionDisplay = "v1.0.4" }) {
+function ThemePreviewMiniUI({ mode = "dark", lang = "ar", versionDisplay = "v1.0.4" }) {
   const isDark = mode === "dark";
   return (
     <div
@@ -1236,9 +1240,9 @@ function ThemePreviewMiniUI({ mode = "dark", versionDisplay = "v1.0.4" }) {
           <MasarLogo size={13} />
           <span
             style={{ color: isDark ? "#f1f5f9" : "#0f172a" }}
-            className="text-[9px] font-bold tracking-wide"
+            className={lang === "ar" ? "text-[9px] font-bold" : "text-[9px] font-bold tracking-wide"}
           >
-            MASAR
+            {lang === "ar" ? "مسار" : "MASAR"}
           </span>
           <span
             style={{
@@ -2361,7 +2365,7 @@ function buildBrowserSpeedReport(snap, lang = "ar", customVersion = "1.0.4") {
         <path d="M18 72C18 42 25 24 35 24C45 24 47 52 50 52C53 52 55 24 65 24C75 24 82 42 82 72C74 72 69 58 65 40C61 52 57 69 50 69C43 69 39 52 35 40C31 58 26 72 18 72Z" fill="url(#msg_browser)" filter="url(#msg_browser_shadow)"/>
       </svg>
       <div>
-        <div class="brand-title">MASAR</div>
+        <div class="brand-title">${isAr ? "مسار" : "MASAR"}</div>
         <div class="brand-sub">${isAr ? "تقرير فحص سرعة الاتصال المعتمد" : "Certified Speed Benchmark Report"} • v${safeVersion}</div>
       </div>
     </div>
@@ -3887,8 +3891,14 @@ export default function App() {
         <div className="flex items-center gap-2.5 pointer-events-none">
           <MasarLogo size={20} className="shrink-0 drop-shadow-sm" />
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-bold text-slate-100 tracking-wide leading-normal flex items-center">
-              <span dir="ltr">MASAR</span>
+            <span
+              className={`text-[13px] font-bold text-slate-100 leading-normal flex items-center ${
+                lang === "ar" ? "tracking-normal" : "tracking-wide"
+              }`}
+            >
+              <span dir={lang === "ar" ? "rtl" : "ltr"}>
+                {lang === "ar" ? "مسار" : "MASAR"}
+              </span>
             </span>
             <span className="text-[11px] font-semibold leading-none text-sky-200 bg-sky-500/15 border border-sky-400/35 px-2 py-1 rounded-full font-mono">
               {versionDisplay}
@@ -6633,8 +6643,13 @@ export default function App() {
 
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                        <span className="text-xl font-extrabold text-white tracking-wide" dir="ltr">
-                          MASAR
+                        <span
+                          className={`text-xl font-extrabold text-white ${
+                            lang === "ar" ? "tracking-normal" : "tracking-wide"
+                          }`}
+                          dir={lang === "ar" ? "rtl" : "ltr"}
+                        >
+                          {lang === "ar" ? "مسار" : "MASAR"}
                         </span>
                         <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/40">
                           {versionDisplay}
@@ -6715,7 +6730,7 @@ export default function App() {
                       </p>
                     </div>
 
-                    <ThemePreviewMiniUI mode="dark" versionDisplay={versionDisplay} />
+                    <ThemePreviewMiniUI mode="dark" lang={lang} versionDisplay={versionDisplay} />
                   </button>
 
                   <button
@@ -6746,7 +6761,7 @@ export default function App() {
                       </p>
                     </div>
 
-                    <ThemePreviewMiniUI mode="light" versionDisplay={versionDisplay} />
+                    <ThemePreviewMiniUI mode="light" lang={lang} versionDisplay={versionDisplay} />
                   </button>
                 </div>
               </section>

@@ -122,7 +122,9 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 		methodologyTitle, methodologyDesc, footerCredits                   string
 	)
 
+	brandTitle := "MASAR"
 	if isAr {
+		brandTitle = "مسار"
 		docTitle = "مسار — التقرير الرسمي الشامل لفحص سرعة الاتصال والأداء الشبكي"
 		printBtnText = "حفظ كملف PDF / طباعة التقرير"
 		sec1Title = "أولاً: الملخص التنفيذي وسرعات الاتصال المعتمدة"
@@ -280,7 +282,7 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
         <path d="M18 72C18 42 25 24 35 24C45 24 47 52 50 52C53 52 55 24 65 24C75 24 82 42 82 72C74 72 69 58 65 40C61 52 57 69 50 69C43 69 39 52 35 40C31 58 26 72 18 72Z" fill="url(#msg)" filter="url(#msgShadow)"/>
       </svg>
       <div>
-        <div class="brand-title">MASAR</div>
+        <div class="brand-title">%s</div>
         <div class="brand-sub">%s • %s</div>
       </div>
     </div>
@@ -379,6 +381,7 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 		html.EscapeString(docTitle),
 		bodyFont, textAlign,
 		gradeBg, gradeColor, gradeColor,
+		brandTitle,
 		html.EscapeString(docTitle), nowFormatted,
 		html.EscapeString(printBtnText),
 		grade,
