@@ -2,7 +2,7 @@
 
 <img src="build/appicon.png" alt="Masar Logo" width="108" height="108" />
 
-# Masar · مسار
+# Masar
 
 <p align="center">
   <strong>Native Windows Network Diagnostics, Visual MTR &amp; Speed Benchmark Suite</strong>
