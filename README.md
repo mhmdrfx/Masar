@@ -23,9 +23,9 @@
 </p>
 
 <h3>
-  <a href="#-english-documentation">🇺🇸 English Documentation</a>
+  <a href="#-english-documentation">English Documentation</a>
   &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="#-التوثيق-الكامل-باللغة-العربية">🇸🇦 التوثيق باللغة العربية</a>
+  <a href="#-التوثيق-الكامل-باللغة-العربية">التوثيق باللغة العربية</a>
 </h3>
 
 </div>
