@@ -94,7 +94,7 @@ const writeStorage = (key, value) => {
 // ---------------------------------------------------------------- store
 let state = {
   status: "idle", // idle | checking | uptodate | available | downloading | error
-  version: "1.0.4",
+  version: "1.0.0",
   info: null,
   progress: null,
   error: "",
@@ -149,7 +149,7 @@ export const checkForUpdates = async ({ silent = false } = {}) => {
     } else {
       // Fallback in web browser testing: fetch GitHub releases directly
       const [resp] = await Promise.all([
-        fetch("https://api.github.com/repos/mhmdrfx/masar/releases/latest"),
+        fetch("https://api.github.com/repos/mhmdrfx/Masar/releases/latest"),
         minDelay,
       ]);
       if (resp.ok) {
@@ -311,7 +311,7 @@ const ALLOWED_RELEASE_URL_PREFIX = "https://github.com/mhmdrfx/masar";
 const openReleasePage = (url) => {
   if (typeof url !== "string") return;
   const trimmed = url.trim();
-  if (!trimmed.startsWith(ALLOWED_RELEASE_URL_PREFIX)) return;
+  if (!trimmed.toLowerCase().startsWith(ALLOWED_RELEASE_URL_PREFIX)) return;
   if (window.runtime && typeof window.runtime.BrowserOpenURL === "function") {
     window.runtime.BrowserOpenURL(trimmed);
   } else {
@@ -642,7 +642,7 @@ export function UpdateSettingsPanel({ lang = "ar" }) {
                   className="font-mono text-xs font-extrabold px-2.5 py-0.5 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/35 shadow-sm"
                   dir="ltr"
                 >
-                  v{s.version || "1.0.4"}
+                  v{s.version || "1.0.0"}
                 </span>
               </div>
               <div className="text-[11px] text-slate-400 mt-0.5">

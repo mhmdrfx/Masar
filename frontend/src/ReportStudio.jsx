@@ -194,7 +194,7 @@ export function buildBrowserCSVReport(snap) {
 
 export function buildBrowserHTMLReport(snap, lang = "ar", localizedHealth = null, customVersion = "") {
   const isAr = lang === "ar";
-  const ver = customVersion ? `v${String(customVersion).replace(/^v/i, "")}` : "v1.0.4";
+  const ver = customVersion ? `v${String(customVersion).replace(/^v/i, "")}` : "v1.0.0";
   const hops = snap?.hops || [];
   const health = localizedHealth || snap?.health || {};
   const proto = snap?.protocol || (snap?.ipVersion === 6 ? "ICMPv6" : "ICMPv4");

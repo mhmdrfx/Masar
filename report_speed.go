@@ -111,7 +111,7 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 	nowFormatted := time.Now().Format("2006-01-02 15:04:05 MST")
 	appVer := currentAppVersion
 	if appVer == "" {
-		appVer = "1.0.4"
+		appVer = "1.0.0"
 	}
 
 	var (
@@ -148,7 +148,7 @@ func BuildSpeedHTMLReport(snap nettools.SpeedSnapshot, lang string) string {
 		thStatus = "الحالة التشغيلية"
 		methodologyTitle = "قياس تكيّفي متعدد القنوات وفق معايير Speedtest القياسية"
 		methodologyDesc = "طُبّق الفحص وفق منهجية Ookla القياسية: اختبار أولي لتحديد سعة الخط وتهيئة القنوات (HTTP/1.1 TCP المستقلة)، ثم تقسيم مرحلة الاستقرار إلى 20 شريحة زمنية لكل من التحميل والرفع بعد استبعاد فترة الإحماء (TCP Slow-Start)، واستبعاد أبطأ 30% من الشرائح وأسرع 10% وحساب متوسط الشريحة الوسطى (60%) لضمان نتيجة ثابتة ومستقرة تماماً."
-		footerCredits = fmt.Sprintf("تم استخراج هذا التقرير الرسمي عبر برنامج مسار (الإصدار %s) — تطوير @mhmdrfx • صُنع بكل إتقان", appVer)
+		footerCredits = fmt.Sprintf("تم استخراج هذا التقرير الرسمي عبر برنامج مسار (الإصدار %s) — تطوير @mhmdrfx • Made With ❤️ in 🇸🇦", appVer)
 	} else {
 		docTitle = "Masar — Official Speed Benchmark & Network Capacity Report"
 		printBtnText = "Save as PDF / Print Official Report"

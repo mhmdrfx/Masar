@@ -27,7 +27,7 @@ var wailsConfig []byte
 
 const (
 	updateRepoOwner     = "mhmdrfx"
-	updateRepoName      = "masar"
+	updateRepoName      = "Masar"
 	updateInstallerName = "Masar-Setup.exe"
 	updateChecksumName  = "Masar-Setup.exe.sha256"
 	updateMaxInstaller  = 300 << 20 // hard cap on installer size (300 MB)
@@ -165,7 +165,8 @@ func (a *App) DownloadAndInstallUpdate() error {
 	if !latest.Available {
 		return errors.New("Masar is already up to date")
 	}
-	if !strings.HasPrefix(latest.DownloadURL, updateAssetsPrefix) || !strings.HasPrefix(latest.ChecksumURL, updateAssetsPrefix) {
+	lowerPrefix := strings.ToLower(updateAssetsPrefix)
+	if !strings.HasPrefix(strings.ToLower(latest.DownloadURL), lowerPrefix) || !strings.HasPrefix(strings.ToLower(latest.ChecksumURL), lowerPrefix) {
 		return errors.New("release assets are not hosted in the official repository")
 	}
 

@@ -11,7 +11,7 @@
   <strong>أداة مكتبية احترافية لتشخيص الشبكة، وتتبع المسار البصري، وقياس السرعة بدقة لنظام ويندوز</strong>
 </p>
 
-[![Latest Release](https://img.shields.io/badge/Release-v1.0.4-ef4444?style=for-the-badge&logo=github)](https://github.com/mhmdrfx/masar/releases/latest)
+[![Latest Release](https://img.shields.io/badge/Release-v1.0.0-ef4444?style=for-the-badge&logo=github)](https://github.com/mhmdrfx/Masar/releases/latest)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(x64)-0284c7?style=for-the-badge&logo=windows)](https://github.com/mhmdrfx/masar/releases/latest)
 [![Built With](https://img.shields.io/badge/Built%20With-Go%201.23%20%2B%20Wails%20v2-00ADD8?style=for-the-badge&logo=go)](https://wails.io)
 [![License](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
@@ -346,5 +346,5 @@ masar/
 
 <div align="center">
   <br />
-  <sub>Engineered &amp; Maintained by <a href="https://github.com/mhmdrfx"><strong>@mhmdrfx</strong></a> · طُوّر بعناية لخدمة مجتمع الشبكات</sub>
+  <p>Made With ❤️ in 🇸🇦</p>
 </div>
