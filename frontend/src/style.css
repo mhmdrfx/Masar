@@ -1,0 +1,1019 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================================
+ * MASAR DUAL-THEME ARCHITECTURE (v1.0.3+)
+ * 1) Dark Theme ("Carbon Slate Studio"):
+ *    - Deep neutral carbon canvas (#0b0f19) — zero OLED black-smear/halation
+ *    - Solid elevated card surfaces (#131b2e) — zero muddy translucency
+ *    - Distinct recessed wells & inputs (#0d1322 / #090e1a)
+ *    - High-contrast structural borders & boosted secondary typography
+ *
+ * 2) Light Theme ("Soft Daylight Alabaster"):
+ *    - Restful anti-glare cool-stone canvas (#dce3ec) — zero blinding white
+ *    - Soft pearl-alabaster cards (#f2f5f9) — comfortable for long sessions
+ *    - Distinct stone wells (#e5ebf3) & crisp ink typography (#0f172a)
+ * ============================================================================ */
+
+:root {
+  --masar-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --masar-sb-track: transparent;
+  --masar-sb-thumb: #283548;
+  --masar-sb-thumb-hover: #3b4d66;
+  font-family: 'Inter', 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+[lang="ar"],
+[dir="rtl"],
+body[dir="rtl"],
+div[dir="rtl"] {
+  font-family: 'IBM Plex Sans Arabic', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+code, kbd, samp, pre, .font-mono {
+  font-family: 'JetBrains Mono', 'IBM Plex Sans Arabic', 'Inter', 'Cascadia Mono', 'Consolas', monospace !important;
+}
+
+:root.theme-light,
+.theme-light {
+  --masar-sb-track: transparent;
+  --masar-sb-thumb: #b4c0cf;
+  --masar-sb-thumb-hover: #8fa0b5;
+}
+
+/* ============================================================================
+ * 1. DARK THEME ("CARBON SLATE STUDIO") — BASE & SURFACE HIERARCHY
+ * ============================================================================ */
+html {
+  background-color: #0b0f19;
+  color-scheme: dark;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
+  overflow: hidden;
+  background-color: #0b0f19;
+  background-image: radial-gradient(
+    ellipse 80% 40% at 50% 0%,
+    rgba(14, 165, 233, 0.05),
+    transparent 70%
+  );
+  color: #f8fafc;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: auto;
+}
+
+/* Dedicated content scroll container below the titlebar */
+.masar-scroll-viewport {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+
+/* Level 1: Primary Elevated Card Surfaces (Solid, Crisp, Zero Muddy Blur) */
+html:not(.theme-light) .bg-slate-900,
+html:not(.theme-light) .bg-slate-900\/95,
+html:not(.theme-light) .bg-slate-900\/90,
+html:not(.theme-light) .bg-slate-900\/80,
+html:not(.theme-light) .bg-slate-900\/75,
+html:not(.theme-light) .bg-slate-900\/65,
+html:not(.theme-light) .bg-slate-900\/60 {
+  background-color: #131b2e !important;
+}
+
+/* Level 2: Recessed Wells, Inner Sub-Cards & Table Headers */
+html:not(.theme-light) .bg-slate-950,
+html:not(.theme-light) .bg-slate-950\/95,
+html:not(.theme-light) .bg-slate-950\/90,
+html:not(.theme-light) .bg-slate-950\/85,
+html:not(.theme-light) .bg-slate-950\/80,
+html:not(.theme-light) .bg-slate-950\/75,
+html:not(.theme-light) .bg-slate-950\/70,
+html:not(.theme-light) .bg-slate-950\/60,
+html:not(.theme-light) .masar-well {
+  background-color: #0d1322 !important;
+}
+
+.masar-well {
+  background-color: #0d1322;
+  box-shadow:
+    inset 0 1px 2px rgba(2, 6, 23, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* Distinct Input Boxes in Dark Mode */
+html:not(.theme-light) input.masar-well {
+  background-color: #090d18 !important;
+  border-color: rgba(148, 163, 184, 0.28) !important;
+  color: #f8fafc !important;
+}
+
+html:not(.theme-light) input.masar-well:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16) !important;
+}
+
+/* Level 3: Interactive Pills, Secondary Buttons & Badges */
+html:not(.theme-light) .bg-slate-800,
+html:not(.theme-light) .bg-slate-800\/90,
+html:not(.theme-light) .bg-slate-800\/80 {
+  background-color: #1e293b !important;
+}
+
+/* Clear, Structured Borders in Dark Mode (No more invisible 11% borders) */
+html:not(.theme-light) .border-slate-800,
+html:not(.theme-light) .border-slate-800\/90,
+html:not(.theme-light) .border-slate-800\/85,
+html:not(.theme-light) .border-slate-800\/80,
+html:not(.theme-light) .border-slate-800\/70,
+html:not(.theme-light) .border-slate-800\/60 {
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+html:not(.theme-light) .border-slate-700,
+html:not(.theme-light) .border-slate-700\/80,
+html:not(.theme-light) .border-slate-700\/70,
+html:not(.theme-light) .border-slate-700\/60,
+html:not(.theme-light) .border-slate-700\/50 {
+  border-color: rgba(148, 163, 184, 0.26) !important;
+}
+
+html:not(.theme-light) .divide-slate-800\/60 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(148, 163, 184, 0.13) !important;
+}
+
+/* Boosted Legibility for Secondary & Muted Text in Dark Mode */
+html:not(.theme-light) .text-slate-300,
+html:not(.theme-light) .text-slate-300\/90 {
+  color: #e2e8f0 !important;
+}
+
+html:not(.theme-light) .text-slate-400,
+html:not(.theme-light) .text-slate-400\/90,
+html:not(.theme-light) .text-slate-400\/80 {
+  color: #cbd5e1 !important;
+}
+
+html:not(.theme-light) .text-slate-500,
+html:not(.theme-light) .text-slate-500\/90 {
+  color: #94a3b8 !important;
+}
+
+/* Crisp Subtle Clarity Glow Utilities for Live Telemetry Text (Dark Mode Only) */
+html:not(.theme-light) .masar-text-glow-sky {
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.36);
+}
+
+html:not(.theme-light) .masar-text-glow-emerald {
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.36);
+}
+
+html:not(.theme-light) .masar-text-glow-amber {
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.34);
+}
+
+/* Card Elevation & Framing in Dark Mode */
+main > section,
+main > div,
+header > div {
+  border-radius: 18px;
+  isolation: isolate;
+  box-shadow:
+    0 6px 22px -4px rgba(2, 6, 23, 0.55),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.wails-drag {
+  --wails-draggable: drag;
+  -webkit-app-region: drag;
+}
+
+.wails-no-drag {
+  --wails-draggable: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--masar-sb-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--masar-sb-thumb);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--masar-sb-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--masar-sb-track);
+}
+
+/* ============================================================================
+ * 2. LIGHT THEME ("CRISP DAYLIGHT STUDIO" — ZERO DARK HOLES, STUDIO CLARITY)
+ * ============================================================================ */
+html.theme-light {
+  background-color: #eaf0f6 !important;
+  color-scheme: light;
+}
+
+html.theme-light body,
+body.theme-light,
+.theme-light {
+  background-color: #eaf0f6 !important;
+  background-image: linear-gradient(
+    180deg,
+    #f0f5fa 0%,
+    #e6edf5 100%
+  ) !important;
+  color: #0f172a !important;
+}
+
+.theme-light .wails-drag {
+  background-color: #f6f9fc !important;
+  border-bottom-color: rgba(15, 23, 42, 0.09) !important;
+}
+
+html.theme-light::-webkit-scrollbar-track,
+body.theme-light::-webkit-scrollbar-track,
+.theme-light::-webkit-scrollbar-track,
+.theme-light ::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+html.theme-light::-webkit-scrollbar-thumb,
+body.theme-light::-webkit-scrollbar-thumb,
+.theme-light::-webkit-scrollbar-thumb,
+.theme-light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+}
+
+html.theme-light::-webkit-scrollbar-thumb:hover,
+body.theme-light::-webkit-scrollbar-thumb:hover,
+.theme-light::-webkit-scrollbar-thumb:hover,
+.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+/* Level 1: Primary Elevated Card Surfaces — Clean Porcelain White */
+.theme-light .bg-slate-900,
+.theme-light .bg-slate-900\/95,
+.theme-light .bg-slate-900\/90,
+.theme-light .bg-slate-900\/85,
+.theme-light .bg-slate-900\/80,
+.theme-light .bg-slate-900\/75,
+.theme-light .bg-slate-900\/70,
+.theme-light .bg-slate-900\/65,
+.theme-light .bg-slate-900\/60,
+.theme-light .bg-slate-900\/40 {
+  background-color: #ffffff !important;
+}
+
+.theme-light main > section,
+.theme-light main > div,
+.theme-light header > div {
+  box-shadow:
+    0 6px 20px -6px rgba(15, 23, 42, 0.08),
+    0 1px 3px 0 rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Level 2: Recessed Wells, Inner Sub-Cards & Table Headers — Satin Cool Mist */
+.theme-light .bg-slate-950,
+.theme-light .bg-slate-950\/95,
+.theme-light .bg-slate-950\/90,
+.theme-light .bg-slate-950\/85,
+.theme-light .bg-slate-950\/80,
+.theme-light .bg-slate-950\/75,
+.theme-light .bg-slate-950\/70,
+.theme-light .bg-slate-950\/60,
+.theme-light .bg-slate-950\/35,
+.theme-light .bg-slate-950\/15,
+.theme-light .masar-well {
+  background-color: #f3f6fb !important;
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.035),
+    0 1px 0 rgba(255, 255, 255, 0.85) !important;
+}
+
+.theme-light thead {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+/* Clean Interactive Sub-Tiles Inside Wells (e.g. Ping / Speed Cards) */
+.theme-light .masar-well .bg-slate-900\/60,
+.theme-light .masar-well .bg-slate-900\/70,
+.theme-light .masar-well .bg-slate-900 {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Crisp Inputs & Selects in Light Mode */
+.theme-light input.masar-well,
+.theme-light select.masar-well {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.04),
+    0 1px 1px rgba(15, 23, 42, 0.02) !important;
+}
+
+.theme-light input.masar-well::placeholder {
+  color: #64748b !important;
+}
+
+.theme-light input.masar-well:focus,
+.theme-light select.masar-well:focus {
+  background-color: #ffffff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.16) !important;
+}
+
+.theme-light select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+/* Level 3: Tracks, Progress Rails, Dividers & Secondary Buttons */
+.theme-light .bg-slate-800,
+.theme-light .bg-slate-800\/90,
+.theme-light .bg-slate-800\/80 {
+  background-color: #e2e8f0 !important;
+}
+
+.theme-light .bg-slate-700\/70 {
+  background-color: rgba(15, 23, 42, 0.14) !important;
+}
+
+.theme-light button.bg-slate-800,
+.theme-light button.bg-slate-900,
+.theme-light button.bg-slate-900\/90,
+.theme-light button.bg-slate-900\/80,
+.theme-light button.bg-slate-950 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+
+.theme-light button.bg-slate-800:hover,
+.theme-light button.bg-slate-900:hover,
+.theme-light button.bg-slate-900\/90:hover,
+.theme-light button.bg-slate-900\/80:hover,
+.theme-light button.bg-slate-950:hover {
+  background-color: #f8fafc !important;
+  border-color: #94a3b8 !important;
+}
+
+.theme-light button.bg-slate-800 .bg-slate-900\/70,
+.theme-light button .bg-slate-900\/70 {
+  background-color: rgba(2, 132, 199, 0.12) !important;
+}
+
+.theme-light button:disabled.bg-slate-900\/40,
+.theme-light .bg-slate-900\/40 {
+  background-color: #f1f5f9 !important;
+}
+
+/* Top Navigation Segmented Bar & Active Tab Pill */
+.theme-light nav.masar-well button.bg-sky-500\/20 {
+  background-color: #ffffff !important;
+  border-color: rgba(2, 132, 199, 0.36) !important;
+  color: #0369a1 !important;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.12) !important;
+}
+
+/* Soft, Calm Gradients in Health Card & Settings Identity Card */
+.theme-light .from-emerald-950\/50,
+.theme-light .from-emerald-50 {
+  --tw-gradient-from: #ecfdf5 !important;
+  --tw-gradient-to: #ffffff !important;
+  --tw-gradient-stops: #ecfdf5, #ffffff, #ffffff !important;
+}
+
+.theme-light .from-amber-950\/50,
+.theme-light .from-amber-50 {
+  --tw-gradient-from: #fffbeb !important;
+  --tw-gradient-to: #ffffff !important;
+  --tw-gradient-stops: #fffbeb, #ffffff, #ffffff !important;
+}
+
+.theme-light .from-red-950\/55,
+.theme-light .from-red-50 {
+  --tw-gradient-from: #fef2f2 !important;
+  --tw-gradient-to: #ffffff !important;
+  --tw-gradient-stops: #fef2f2, #ffffff, #ffffff !important;
+}
+
+.theme-light .from-slate-900,
+.theme-light .from-sky-950\/40,
+.theme-light .from-sky-50 {
+  --tw-gradient-from: #f0f9ff !important;
+  --tw-gradient-to: #ecfdf5 !important;
+  --tw-gradient-stops: #f0f9ff, #ffffff, #ecfdf5 !important;
+}
+
+.theme-light .via-slate-900,
+.theme-light .via-slate-900\/90,
+.theme-light .via-slate-950\/90,
+.theme-light .via-white {
+  --tw-gradient-stops: var(--tw-gradient-from), #ffffff, var(--tw-gradient-to) !important;
+}
+
+.theme-light .to-slate-900\/90,
+.theme-light .to-slate-950,
+.theme-light .to-white,
+.theme-light .to-slate-50 {
+  --tw-gradient-to: #ffffff !important;
+}
+
+.theme-light .to-emerald-950\/30,
+.theme-light .to-emerald-50 {
+  --tw-gradient-to: #ecfdf5 !important;
+}
+
+/* Tinted Semantic Status Backgrounds (Crisp Daylight Pastels) */
+.theme-light .bg-sky-950\/70,
+.theme-light .bg-sky-950\/60,
+.theme-light .bg-sky-950\/40,
+.theme-light .bg-sky-950\/20,
+.theme-light .bg-sky-500\/10,
+.theme-light .bg-sky-500\/15,
+.theme-light .bg-sky-500\/20,
+.theme-light .bg-sky-500\/\[0\.06\] {
+  background-color: rgba(2, 132, 199, 0.11) !important;
+}
+
+.theme-light .bg-emerald-950\/60,
+.theme-light .bg-emerald-950\/50,
+.theme-light .bg-emerald-950\/40,
+.theme-light .bg-emerald-950\/35,
+.theme-light .bg-emerald-950\/30,
+.theme-light .bg-emerald-500\/10,
+.theme-light .bg-emerald-500\/15,
+.theme-light .bg-emerald-500\/20,
+.theme-light .bg-emerald-500\/25,
+.theme-light .bg-emerald-500\/\[0\.06\] {
+  background-color: rgba(5, 150, 105, 0.11) !important;
+}
+
+.theme-light .bg-amber-950\/40,
+.theme-light .bg-amber-950\/30,
+.theme-light .bg-amber-950\/15,
+.theme-light .bg-amber-500\/10,
+.theme-light .bg-amber-500\/15,
+.theme-light .bg-amber-500\/20,
+.theme-light .bg-amber-500\/\[0\.06\] {
+  background-color: rgba(217, 119, 6, 0.11) !important;
+}
+
+.theme-light .bg-red-900\/40,
+.theme-light .bg-red-950\/60,
+.theme-light .bg-red-950\/50,
+.theme-light .bg-red-950\/40,
+.theme-light .bg-red-950\/30,
+.theme-light .bg-red-950\/25,
+.theme-light .bg-red-950\/20,
+.theme-light .bg-red-500\/10,
+.theme-light .bg-red-500\/15,
+.theme-light .bg-red-500\/20,
+.theme-light .bg-red-500\/25,
+.theme-light .bg-rose-500\/15,
+.theme-light .bg-rose-500\/20 {
+  background-color: rgba(220, 38, 38, 0.10) !important;
+}
+
+.theme-light .bg-indigo-500\/15,
+.theme-light .bg-indigo-500\/20,
+.theme-light .bg-indigo-600\/25 {
+  background-color: rgba(79, 70, 229, 0.11) !important;
+}
+
+/* Defined Architectural Borders in Light Mode */
+.theme-light .border-slate-800,
+.theme-light .border-slate-800\/90,
+.theme-light .border-slate-800\/85,
+.theme-light .border-slate-800\/80,
+.theme-light .border-slate-800\/70,
+.theme-light .border-slate-800\/60 {
+  border-color: rgba(15, 23, 42, 0.10) !important;
+}
+
+.theme-light .border-slate-700,
+.theme-light .border-slate-700\/80,
+.theme-light .border-slate-700\/70,
+.theme-light .border-slate-700\/60,
+.theme-light .border-slate-700\/50 {
+  border-color: rgba(15, 23, 42, 0.16) !important;
+}
+
+.theme-light .divide-slate-800\/60 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Semantic Borders in Light Mode */
+.theme-light .border-sky-300,
+.theme-light .border-sky-400,
+.theme-light .border-sky-400\/35,
+.theme-light .border-sky-400\/40,
+.theme-light .border-sky-400\/50,
+.theme-light .border-sky-400\/70,
+.theme-light .border-sky-500\/25,
+.theme-light .border-sky-500\/30,
+.theme-light .border-sky-500\/35,
+.theme-light .border-sky-500\/40,
+.theme-light .border-sky-500\/45,
+.theme-light .border-sky-500\/50,
+.theme-light .border-sky-600\/45 {
+  border-color: rgba(2, 132, 199, 0.36) !important;
+}
+
+.theme-light .border-emerald-300,
+.theme-light .border-emerald-400\/50,
+.theme-light .border-emerald-400\/70,
+.theme-light .border-emerald-500\/25,
+.theme-light .border-emerald-500\/30,
+.theme-light .border-emerald-500\/35,
+.theme-light .border-emerald-500\/40,
+.theme-light .border-emerald-500\/50 {
+  border-color: rgba(5, 150, 105, 0.36) !important;
+}
+
+.theme-light .border-amber-300,
+.theme-light .border-amber-400\/70,
+.theme-light .border-amber-500\/25,
+.theme-light .border-amber-500\/30,
+.theme-light .border-amber-500\/35,
+.theme-light .border-amber-500\/40,
+.theme-light .border-amber-500\/45,
+.theme-light .border-amber-500\/50 {
+  border-color: rgba(217, 119, 6, 0.38) !important;
+}
+
+.theme-light .border-red-300,
+.theme-light .border-red-500\/25,
+.theme-light .border-red-500\/30,
+.theme-light .border-red-500\/35,
+.theme-light .border-red-500\/40,
+.theme-light .border-red-500\/45,
+.theme-light .border-red-500\/50,
+.theme-light .border-red-500\/60,
+.theme-light .border-rose-500\/30,
+.theme-light .border-rose-500\/35,
+.theme-light .border-rose-500\/40 {
+  border-color: rgba(220, 38, 38, 0.36) !important;
+}
+
+.theme-light .border-indigo-500,
+.theme-light .border-indigo-500\/35,
+.theme-light .border-indigo-500\/40,
+.theme-light .border-indigo-500\/60 {
+  border-color: rgba(79, 70, 229, 0.38) !important;
+}
+
+.theme-light .border-violet-500\/35 {
+  border-color: rgba(109, 40, 217, 0.35) !important;
+}
+
+/* Primary Solid & Gradient Action Buttons in Light Mode (Sapphire & Emerald + White Ink) */
+.theme-light .bg-sky-500,
+.theme-light .bg-sky-600 {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+.theme-light button.bg-sky-500,
+.theme-light button.bg-sky-600 {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25) !important;
+}
+
+.theme-light button.bg-sky-500:hover,
+.theme-light button.bg-sky-600:hover {
+  background-color: #0369a1 !important;
+}
+
+.theme-light .bg-emerald-500,
+.theme-light .bg-emerald-600,
+.theme-light button.bg-emerald-500,
+.theme-light button.bg-emerald-600 {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.24) !important;
+}
+
+.theme-light button.bg-emerald-500:hover,
+.theme-light button.bg-emerald-600:hover {
+  background-color: #047857 !important;
+}
+
+.theme-light button.masar-cta-sheen.from-sky-500 {
+  background-image: linear-gradient(135deg, #0284c7 0%, #0ea5e9 55%, #0284c7 100%) !important;
+  border-color: rgba(3, 105, 161, 0.25) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 6px 16px -4px rgba(2, 132, 199, 0.34) !important;
+}
+
+.theme-light button.masar-cta-sheen.from-sky-500:hover {
+  background-image: linear-gradient(135deg, #0369a1 0%, #0284c7 55%, #0369a1 100%) !important;
+}
+
+.theme-light button.masar-cta-sheen.from-emerald-500 {
+  background-image: linear-gradient(135deg, #059669 0%, #10b981 55%, #059669 100%) !important;
+  border-color: rgba(4, 120, 87, 0.25) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 6px 16px -4px rgba(5, 150, 105, 0.32) !important;
+}
+
+.theme-light button.masar-cta-sheen.from-emerald-500:hover {
+  background-image: linear-gradient(135deg, #047857 0%, #059669 55%, #047857 100%) !important;
+}
+
+.theme-light button.masar-cta-sheen.from-sky-500 .bg-slate-950\/15,
+.theme-light button.masar-cta-sheen.from-emerald-500 .bg-slate-950\/15 {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+
+/* High-Clarity Ink Typography in Light Mode */
+.theme-light .text-white,
+.theme-light .text-slate-100,
+.theme-light .text-slate-200 {
+  color: #0f172a !important;
+}
+
+.theme-light .text-slate-300 {
+  color: #1e293b !important;
+}
+
+.theme-light .text-slate-400 {
+  color: #334155 !important;
+}
+
+.theme-light .text-slate-500,
+.theme-light .text-slate-600 {
+  color: #475569 !important;
+}
+
+.theme-light .text-sky-100,
+.theme-light .text-sky-200,
+.theme-light .text-sky-300,
+.theme-light .text-sky-400,
+.theme-light .text-sky-500,
+.theme-light .text-sky-300\/80,
+.theme-light .text-sky-300\/90,
+.theme-light .hover\:text-sky-200:hover,
+.theme-light .hover\:text-sky-300:hover,
+.theme-light .hover\:text-sky-400:hover {
+  color: #0369a1 !important;
+}
+
+.theme-light .text-emerald-100,
+.theme-light .text-emerald-200,
+.theme-light .text-emerald-300,
+.theme-light .text-emerald-300\/90,
+.theme-light .text-emerald-400 {
+  color: #047857 !important;
+}
+
+.theme-light .text-amber-200,
+.theme-light .text-amber-300,
+.theme-light .text-amber-400 {
+  color: #b45309 !important;
+}
+
+.theme-light .text-red-200,
+.theme-light .text-red-300,
+.theme-light .text-red-300\/90,
+.theme-light .text-red-400,
+.theme-light .text-red-500,
+.theme-light .text-rose-200,
+.theme-light .text-rose-300,
+.theme-light .text-rose-400,
+.theme-light .hover\:text-red-300:hover {
+  color: #b91c1c !important;
+}
+
+.theme-light .text-purple-300,
+.theme-light .text-purple-400,
+.theme-light .text-violet-300,
+.theme-light .text-violet-400 {
+  color: #6d28d9 !important;
+}
+
+.theme-light .text-indigo-200,
+.theme-light .text-indigo-300 {
+  color: #4338ca !important;
+}
+
+.theme-light .text-orange-300,
+.theme-light .text-orange-400 {
+  color: #c2410c !important;
+}
+
+.theme-light .bg-purple-500\/15,
+.theme-light .bg-violet-500\/15 {
+  background-color: rgba(109, 40, 217, 0.10) !important;
+}
+
+/* Preserve Crisp White Ink Inside Solid & Gradient Accent Controls */
+.theme-light .bg-sky-500,
+.theme-light .bg-sky-600,
+.theme-light .bg-emerald-500,
+.theme-light .bg-emerald-600,
+.theme-light .bg-indigo-600,
+.theme-light .bg-red-500,
+.theme-light button.masar-cta-sheen.from-sky-500,
+.theme-light button.masar-cta-sheen.from-emerald-500,
+.theme-light .bg-sky-500 *,
+.theme-light .bg-sky-600 *,
+.theme-light .bg-emerald-500 *,
+.theme-light .bg-emerald-600 *,
+.theme-light button.masar-cta-sheen.from-sky-500 *,
+.theme-light button.masar-cta-sheen.from-emerald-500 * {
+  color: #ffffff !important;
+}
+
+/* Hover States in Light Mode */
+.theme-light .hover\:bg-slate-900:hover,
+.theme-light .hover\:bg-slate-900\/50:hover,
+.theme-light .hover\:bg-slate-800:hover,
+.theme-light .hover\:bg-slate-800\/80:hover,
+.theme-light .hover\:bg-slate-800\/50:hover,
+.theme-light .hover\:bg-slate-800\/40:hover,
+.theme-light .hover\:bg-white\/\[0\.06\]:hover {
+  background-color: #e2e8f0 !important;
+}
+
+.theme-light .hover\:bg-slate-700:hover {
+  background-color: #f1f5f9 !important;
+}
+
+.theme-light .hover\:bg-sky-500\/15:hover,
+.theme-light .hover\:bg-sky-500\/20:hover,
+.theme-light .hover\:bg-sky-500\/25:hover,
+.theme-light .hover\:bg-sky-900\/40:hover {
+  background-color: rgba(2, 132, 199, 0.16) !important;
+}
+
+.theme-light .hover\:bg-emerald-500\/25:hover,
+.theme-light .hover\:bg-emerald-500\/30:hover {
+  background-color: rgba(5, 150, 105, 0.16) !important;
+}
+
+.theme-light .hover\:bg-red-500\/20:hover,
+.theme-light .hover\:bg-red-500\/30:hover,
+.theme-light .hover\:bg-red-950\/35:hover,
+.theme-light .hover\:bg-rose-500\/25:hover {
+  background-color: rgba(220, 38, 38, 0.16) !important;
+}
+
+.theme-light .hover\:bg-amber-950\/25:hover {
+  background-color: rgba(217, 119, 6, 0.16) !important;
+}
+
+.theme-light .hover\:bg-indigo-500\/30:hover {
+  background-color: rgba(79, 70, 229, 0.18) !important;
+}
+
+.theme-light .hover\:text-slate-100:hover,
+.theme-light .hover\:text-slate-200:hover,
+.theme-light .hover\:text-white:hover {
+  color: #0f172a !important;
+}
+
+.theme-light .masar-telemetry-row:hover {
+  background-color: #f8fbff !important;
+}
+
+/* Keep Close Window Button white on red hover */
+.theme-light button.hover\:bg-red-500\/90:hover {
+  color: #ffffff !important;
+}
+
+/* ============================================================================
+ * 3. CALM MOTION & INTERACTION SYSTEM (ZERO DISTRACTION)
+ * ============================================================================ */
+
+@keyframes masarTabEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.994);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes masarDropdownEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes masarScoreReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes masarGoPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.99);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.03);
+  }
+}
+
+.masar-go-pulse {
+  animation: masarGoPulse 3.2s ease-in-out infinite;
+}
+
+.masar-score-reveal {
+  animation: masarScoreReveal 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.masar-dropdown-anim {
+  animation: masarDropdownEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.masar-nav-btn {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.masar-nav-btn:hover {
+  transform: translateY(-1px);
+}
+
+.masar-nav-btn:active {
+  transform: scale(0.97);
+}
+
+@keyframes masarBackdropEnter {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes masarModalEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes masarCardSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.masar-tab-animate {
+  animation: masarTabEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.masar-backdrop-animate {
+  animation: masarBackdropEnter 0.22s ease-out both;
+}
+
+.masar-modal-animate {
+  animation: masarModalEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.masar-card-slide-in {
+  animation: masarCardSlideIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.font-mono,
+table,
+td,
+th,
+.tabular-nums {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+[dir="rtl"],
+[dir="rtl"] *:not([dir="ltr"]),
+[lang="ar"] *:not([dir="ltr"]),
+.font-arabic {
+  letter-spacing: 0 !important;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+}
+
+header > div,
+main > section,
+main > div {
+  transition:
+    border-color 0.25s var(--masar-ease-smooth),
+    box-shadow 0.25s var(--masar-ease-smooth);
+}
+
+.masar-lift-card {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  transition:
+    border-color var(--masar-dur-card) var(--masar-ease-smooth),
+    background-color var(--masar-dur-card) var(--masar-ease-smooth),
+    box-shadow var(--masar-dur-card) var(--masar-ease-smooth);
+}
+
+.masar-lift-card:hover {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1px rgba(56, 189, 248, 0.28),
+    0 8px 20px -6px rgba(2, 6, 23, 0.45);
+}
+
+.theme-light .masar-lift-card:hover {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(2, 132, 199, 0.28),
+    0 8px 18px -6px rgba(15, 23, 42, 0.10) !important;
+}
+
+.masar-gauge-arc {
+  transition: stroke 0.25s var(--masar-ease-out);
+}
+
+.masar-telemetry-row {
+  position: relative;
+}
+
+.masar-telemetry-row td:first-child {
+  position: relative;
+}
+
+.masar-telemetry-row:hover td:first-child::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2.5px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #38bdf8, #10b981);
+}
+
+button {
+  transition:
+    transform 0.18s var(--masar-ease-out),
+    background-color 0.18s var(--masar-ease-out),
+    border-color 0.18s var(--masar-ease-out),
+    color 0.18s var(--masar-ease-out),
+    box-shadow 0.18s var(--masar-ease-out);
+}
+
+button:not(:disabled):active {
+  transform: translateY(1px) scale(0.985);
+}
