@@ -1,0 +1,1448 @@
+package mtr
+
+import (
+	"context"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"math"
+	"net"
+	"net/http"
+	"os"
+	"sort"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
+)
+
+const (
+	MaxHops        = 30
+	PollInterval   = 1 * time.Second
+	ProbeSpacing   = 5 * time.Millisecond
+	PacketTimeout  = 800 * time.Millisecond
+	DNSTimeout     = 1500 * time.Millisecond
+	GeoTimeout     = 1800 * time.Millisecond
+	MaxHistorySize = 60
+	ProtocolICMP   = 1
+	ProtocolICMPv6 = 58
+)
+
+// HopStat represents real-time telemetry for a single network hop (TTL).
+type HopStat struct {
+	Hop          int       `json:"hop"`
+	IP           string    `json:"ip"`
+	AltIPs       []string  `json:"altIps,omitempty"`
+	RouteChanges int       `json:"routeChanges,omitempty"`
+	Hostname     string    `json:"hostname"`
+	Location     string    `json:"location"`
+	ASN          string    `json:"asn"`
+	Sent         int       `json:"sent"`
+	Received     int       `json:"received"`
+	LossPercent  float64   `json:"lossPercent"`
+	LastMs       float64   `json:"lastMs"`
+	AvgMs        float64   `json:"avgMs"`
+	BestMs       float64   `json:"bestMs"`
+	WorstMs      float64   `json:"worstMs"`
+	JitterMs     float64   `json:"jitterMs"`
+	MOS          float64   `json:"mos,omitempty"`
+	History      []float64 `json:"history"`
+	ReachedDest  bool      `json:"reachedDest"`
+}
+
+// HealthReport summarizes overall route quality and identifies any bottleneck hop.
+type HealthReport struct {
+	Score      int    `json:"score"`
+	Severity   string `json:"severity"` // "healthy" | "warning" | "critical" | "idle"
+	Status     string `json:"status"`
+	Detail     string `json:"detail"`
+	CulpritHop int    `json:"culpritHop"`
+}
+
+// TraceSnapshot contains a point-in-time snapshot of all hops and the health evaluation.
+type TraceSnapshot struct {
+	Running    bool         `json:"running"`
+	Target     string       `json:"target"`
+	ResolvedIP string       `json:"resolvedIp"`
+	Protocol   string       `json:"protocol,omitempty"`
+	IPVersion  int          `json:"ipVersion,omitempty"`
+	MOSScore   float64      `json:"mosScore,omitempty"`
+	MOSGrade   string       `json:"mosGrade,omitempty"`
+	UpdatedAt  string       `json:"updatedAt"`
+	Hops       []HopStat    `json:"hops"`
+	Health     HealthReport `json:"health"`
+}
+
+type probeRecord struct {
+	ttl    int
+	sentAt time.Time
+}
+
+type geoInfo struct {
+	location string
+	asn      string
+}
+
+const (
+	positiveCacheTTL      = 30 * time.Minute
+	negativeCacheCooldown = 45 * time.Second
+	maxSharedCacheEntries = 1024
+)
+
+type cachedDNSRecord struct {
+	hostname  string
+	expiresAt time.Time
+}
+
+type cachedGeoRecord struct {
+	info      geoInfo
+	expiresAt time.Time
+}
+
+var (
+	sharedMetaMu     sync.RWMutex
+	sharedDNS        = make(map[string]cachedDNSRecord)
+	sharedDNSWaiters = make(map[string][]*Engine)
+	sharedGeo        = make(map[string]cachedGeoRecord)
+	sharedGeoWaiters = make(map[string][]*Engine)
+	geoHTTPClient    = &http.Client{
+		Timeout: GeoTimeout,
+		Transport: &http.Transport{
+			Proxy:               http.ProxyFromEnvironment,
+			MaxIdleConns:        8,
+			MaxIdleConnsPerHost: 4,
+		},
+	}
+)
+
+type hopInternal struct {
+	hop          int
+	ip           string
+	ipCounts     map[string]int
+	routeChanges int
+	sent         int
+	received     int
+	lastMs       float64
+	sumMs        float64
+	bestMs       float64
+	worstMs      float64
+	prevRttMs    float64
+	jitterSumMs  float64
+	jitterCount  int
+	history      []float64
+	reachedDest  bool
+}
+
+// Engine manages dual-stack ICMP, TCP, and UDP MTR probing, response correlation, and non-blocking DNS + GeoIP resolution.
+type Engine struct {
+	target           string
+	destIP           net.IP
+	isIPv6           bool
+	probeMode        string
+	targetPort       int
+	protocolOverride string
+	hybridTCP        bool
+	hybridDestTTL    int
+	l4PortCursor     uint32
+	icmpID           int
+	mu               sync.RWMutex
+	hops             map[int]*hopInternal
+	inFlight         map[uint16]probeRecord
+	seqCounter       uint16
+	maxDestTTL       int
+	destSeenRound    bool
+	destMissRounds   int
+
+	emitMu      sync.Mutex
+	lastEmit    time.Time
+	emitPending bool
+
+	onUpdate func(TraceSnapshot)
+}
+
+// NewEngine creates a new ICMP MTR Engine targeting a hostname, IPv4, or IPv6 address.
+func NewEngine(target string, onUpdate func(TraceSnapshot)) (*Engine, error) {
+	return NewEngineWithMode(target, ProbeICMP, onUpdate)
+}
+
+// NewEngineWithMode creates an MTR Engine configured for "icmp", "tcp", or "udp" probing.
+func NewEngineWithMode(target string, mode string, onUpdate func(TraceSnapshot)) (*Engine, error) {
+	normMode := NormalizeProbeMode(mode)
+	cleanTarget := strings.TrimSpace(target)
+	if cleanTarget == "" {
+		return nil, errors.New("target host or IP cannot be empty")
+	}
+
+	hostOnly, targetPort := parseTargetAndPort(cleanTarget, normMode)
+	destIP, isIPv6, err := resolveTargetIP(hostOnly)
+	if err != nil {
+		return nil, err
+	}
+
+	id := (os.Getpid() ^ int(time.Now().UnixNano()&0xffff)) & 0xffff
+	if id == 0 {
+		id = 0x4d53 // "MS" for Masar
+	}
+
+	hops := make(map[int]*hopInternal, MaxHops)
+	for ttl := 1; ttl <= MaxHops; ttl++ {
+		hops[ttl] = &hopInternal{
+			hop:      ttl,
+			ipCounts: make(map[string]int, 2),
+			history:  make([]float64, 0, MaxHistorySize),
+		}
+	}
+
+	return &Engine{
+		target:     cleanTarget,
+		destIP:     destIP,
+		isIPv6:     isIPv6,
+		probeMode:  normMode,
+		targetPort: targetPort,
+		icmpID:     id,
+		hops:       hops,
+		inFlight:   make(map[uint16]probeRecord),
+		maxDestTTL: MaxHops,
+		onUpdate:   onUpdate,
+	}, nil
+}
+
+func resolveTargetIP(rawHost string) (net.IP, bool, error) {
+	host := strings.TrimSpace(rawHost)
+	host = strings.TrimPrefix(host, "https://")
+	host = strings.TrimPrefix(host, "http://")
+	if idx := strings.IndexByte(host, '/'); idx != -1 {
+		host = host[:idx]
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	host = strings.Trim(strings.TrimSpace(host), "[]")
+	if host == "" {
+		return nil, false, errors.New("target host or IP cannot be empty")
+	}
+
+	if ip := net.ParseIP(host); ip != nil {
+		if ip4 := ip.To4(); ip4 != nil {
+			return ip4, false, nil
+		}
+		if ip16 := ip.To16(); ip16 != nil {
+			return ip16, true, nil
+		}
+		return nil, false, fmt.Errorf("invalid IP address %q", host)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to resolve host %q: %w", host, err)
+	}
+	for _, addr := range addrs {
+		if ip4 := addr.IP.To4(); ip4 != nil {
+			return ip4, false, nil
+		}
+	}
+	for _, addr := range addrs {
+		if ip16 := addr.IP.To16(); ip16 != nil {
+			return ip16, true, nil
+		}
+	}
+	return nil, false, fmt.Errorf("no IPv4 or IPv6 address found for %q", host)
+}
+
+func isPermissionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if os.IsPermission(err) || errors.Is(err, syscall.EACCES) || errors.Is(err, syscall.EPERM) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "permission") ||
+		strings.Contains(msg, "access is denied") ||
+		strings.Contains(msg, "operation not permitted") ||
+		strings.Contains(msg, "wsaeacces") ||
+		strings.Contains(msg, "10013")
+}
+
+// Run probes all hops along the path until ctx is cancelled.
+// On Windows ICMP mode uses unprivileged iphlpapi.dll (IcmpSendEcho2 / Icmp6SendEcho2) for non-Admin execution.
+func (e *Engine) Run(ctx context.Context) error {
+	switch e.probeMode {
+	case ProbeTCP:
+		return e.runTCPMTR(ctx)
+	case ProbeUDP:
+		return e.runUDPMTR(ctx)
+	default:
+		return e.runPlatform(ctx)
+	}
+}
+
+func (e *Engine) runSocketPlatform(ctx context.Context) error {
+	network := "ip4:icmp"
+	bindAddr := "0.0.0.0"
+	dgramFallback := "udp4"
+	if e.isIPv6 {
+		network = "ip6:ipv6-icmp"
+		bindAddr = "::"
+		dgramFallback = "udp6"
+	}
+
+	conn, err := icmp.ListenPacket(network, bindAddr)
+	usingDgram := false
+	if err != nil && isPermissionError(err) {
+		if dgConn, dgErr := icmp.ListenPacket(dgramFallback, bindAddr); dgErr == nil {
+			conn = dgConn
+			err = nil
+			usingDgram = true
+		}
+	}
+	if err != nil {
+		if isPermissionError(err) {
+			return fmt.Errorf("ICMP socket requires elevated privileges (Run as Administrator on Windows or root / CAP_NET_RAW on Linux/macOS): %w", err)
+		}
+		return fmt.Errorf("failed to open %s socket: %w", network, err)
+	}
+	defer conn.Close()
+
+	var p4 *ipv4.PacketConn
+	var p6 *ipv6.PacketConn
+	if e.isIPv6 {
+		p6 = conn.IPv6PacketConn()
+		if p6 == nil {
+			return errors.New("failed to initialize IPv6 packet connection wrapper")
+		}
+	} else {
+		p4 = conn.IPv4PacketConn()
+		if p4 == nil {
+			return errors.New("failed to initialize IPv4 packet connection wrapper")
+		}
+	}
+
+	recvDone := make(chan struct{})
+	go func() {
+		defer close(recvDone)
+		e.receiveLoop(ctx, conn)
+	}()
+
+	e.sendSweep(ctx, conn, p4, p6, usingDgram)
+	e.emitSnapshotImmediate()
+
+	pollTicker := time.NewTicker(PollInterval)
+	defer pollTicker.Stop()
+
+	reapTicker := time.NewTicker(200 * time.Millisecond)
+	defer reapTicker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			_ = conn.SetReadDeadline(time.Now())
+			_ = conn.Close()
+			<-recvDone
+			return nil
+		case <-reapTicker.C:
+			if e.reapTimeouts() {
+				e.emitSnapshotImmediate()
+			} else {
+				e.flushPendingSnapshot()
+			}
+		case <-pollTicker.C:
+			e.reapTimeouts()
+			e.sendSweep(ctx, conn, p4, p6, usingDgram)
+			e.emitSnapshotImmediate()
+		}
+	}
+}
+
+func (e *Engine) beginSweepRound() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// If an active route lengthens beyond the previously discovered destination TTL,
+	// recover dynamically after two consecutive missed rounds at maxDestTTL.
+	if e.maxDestTTL < MaxHops {
+		if !e.destSeenRound {
+			e.destMissRounds++
+		} else {
+			e.destMissRounds = 0
+		}
+		if e.destMissRounds >= 2 {
+			for ttl := 1; ttl <= MaxHops; ttl++ {
+				if h, ok := e.hops[ttl]; ok {
+					h.reachedDest = false
+				}
+			}
+			e.maxDestTTL = MaxHops
+			e.destMissRounds = 0
+		}
+	}
+	e.destSeenRound = false
+	return e.maxDestTTL
+}
+
+func (e *Engine) clearInFlight(seq uint16) {
+	e.mu.Lock()
+	delete(e.inFlight, seq)
+	e.mu.Unlock()
+}
+
+func (e *Engine) sendSweep(ctx context.Context, conn *icmp.PacketConn, p4 *ipv4.PacketConn, p6 *ipv6.PacketConn, usingDgram bool) {
+	limitTTL := e.beginSweepRound()
+
+	var dst net.Addr
+	if usingDgram {
+		dst = &net.UDPAddr{IP: e.destIP}
+	} else {
+		dst = &net.IPAddr{IP: e.destIP}
+	}
+
+	for ttl := 1; ttl <= limitTTL; ttl++ {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		e.mu.Lock()
+		if ttl > e.maxDestTTL {
+			e.mu.Unlock()
+			break
+		}
+		e.seqCounter++
+		seq := e.seqCounter
+		now := time.Now()
+		e.inFlight[seq] = probeRecord{
+			ttl:    ttl,
+			sentAt: now,
+		}
+		if h, ok := e.hops[ttl]; ok {
+			h.sent++
+		}
+		e.mu.Unlock()
+
+		var err error
+		if e.isIPv6 {
+			err = p6.SetHopLimit(ttl)
+		} else {
+			err = p4.SetTTL(ttl)
+		}
+		if err != nil {
+			continue
+		}
+
+		payload := make([]byte, 32)
+		binary.BigEndian.PutUint64(payload[0:8], uint64(now.UnixNano()))
+
+		msgType := icmp.Type(ipv4.ICMPTypeEcho)
+		if e.isIPv6 {
+			msgType = ipv6.ICMPTypeEchoRequest
+		}
+		msg := icmp.Message{
+			Type: msgType,
+			Code: 0,
+			Body: &icmp.Echo{
+				ID:   e.icmpID,
+				Seq:  int(seq),
+				Data: payload,
+			},
+		}
+
+		wire, err := msg.Marshal(nil)
+		if err != nil {
+			continue
+		}
+
+		_ = conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
+		_, _ = conn.WriteTo(wire, dst)
+
+		if ttl < limitTTL {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(ProbeSpacing):
+			}
+		}
+	}
+}
+
+func (e *Engine) receiveLoop(ctx context.Context, conn *icmp.PacketConn) {
+	buf := make([]byte, 1500)
+	proto := ProtocolICMP
+	if e.isIPv6 {
+		proto = ProtocolICMPv6
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		_ = conn.SetReadDeadline(time.Now().Add(250 * time.Millisecond))
+		n, peer, err := conn.ReadFrom(buf)
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				continue
+			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				continue
+			}
+		}
+
+		recvTime := time.Now()
+		peerIP := extractPeerIP(peer)
+
+		msg, err := icmp.ParseMessage(proto, buf[:n])
+		if err != nil {
+			continue
+		}
+
+		if e.isIPv6 {
+			switch msg.Type {
+			case ipv6.ICMPTypeEchoReply:
+				echo, ok := msg.Body.(*icmp.Echo)
+				if !ok || (e.icmpID != 0 && echo.ID != e.icmpID) {
+					continue
+				}
+				if e.recordReply(uint16(echo.Seq), peerIP, recvTime, true) {
+					e.emitSnapshot()
+				}
+			case ipv6.ICMPTypeTimeExceeded:
+				body, ok := msg.Body.(*icmp.TimeExceeded)
+				if !ok {
+					continue
+				}
+				id, seq, ok := extractQuotedICMPv6(body.Data)
+				if !ok || (id != e.icmpID && e.icmpID != 0) {
+					continue
+				}
+				if e.recordReply(seq, peerIP, recvTime, false) {
+					e.emitSnapshot()
+				}
+			case ipv6.ICMPTypeDestinationUnreachable:
+				body, ok := msg.Body.(*icmp.DstUnreach)
+				if !ok {
+					continue
+				}
+				id, seq, ok := extractQuotedICMPv6(body.Data)
+				if !ok || (id != e.icmpID && e.icmpID != 0) {
+					continue
+				}
+				if e.recordReply(seq, peerIP, recvTime, peerIP == e.destIP.String()) {
+					e.emitSnapshot()
+				}
+			}
+			continue
+		}
+
+		switch msg.Type {
+		case ipv4.ICMPTypeEchoReply:
+			echo, ok := msg.Body.(*icmp.Echo)
+			if !ok || echo.ID != e.icmpID {
+				continue
+			}
+			seq := uint16(echo.Seq)
+			if e.recordReply(seq, peerIP, recvTime, true) {
+				e.emitSnapshot()
+			}
+
+		case ipv4.ICMPTypeTimeExceeded:
+			body, ok := msg.Body.(*icmp.TimeExceeded)
+			if !ok {
+				continue
+			}
+			id, seq, ok := extractQuotedICMP(body.Data)
+			if !ok || id != e.icmpID {
+				continue
+			}
+			if e.recordReply(seq, peerIP, recvTime, false) {
+				e.emitSnapshot()
+			}
+
+		case ipv4.ICMPTypeDestinationUnreachable:
+			body, ok := msg.Body.(*icmp.DstUnreach)
+			if !ok {
+				continue
+			}
+			id, seq, ok := extractQuotedICMP(body.Data)
+			if !ok || id != e.icmpID {
+				continue
+			}
+			if e.recordReply(seq, peerIP, recvTime, peerIP == e.destIP.String()) {
+				e.emitSnapshot()
+			}
+		}
+	}
+}
+
+func extractQuotedICMPv6(data []byte) (int, uint16, bool) {
+	// Quoted IPv6 header (40 bytes) + at least 8 bytes inner ICMPv6 header
+	if len(data) < 48 {
+		return 0, 0, false
+	}
+	innerICMP := data[40:48]
+	id := int(binary.BigEndian.Uint16(innerICMP[4:6]))
+	seq := binary.BigEndian.Uint16(innerICMP[6:8])
+	return id, seq, true
+}
+
+func extractQuotedICMP(data []byte) (int, uint16, bool) {
+	if len(data) < 20 {
+		return 0, 0, false
+	}
+	ihl := int(data[0]&0x0f) * 4
+	if ihl < 20 || len(data) < ihl+8 {
+		return 0, 0, false
+	}
+	innerICMP := data[ihl : ihl+8]
+	id := int(binary.BigEndian.Uint16(innerICMP[4:6]))
+	seq := binary.BigEndian.Uint16(innerICMP[6:8])
+	return id, seq, true
+}
+
+func extractPeerIP(addr net.Addr) string {
+	if addr == nil {
+		return ""
+	}
+	switch v := addr.(type) {
+	case *net.IPAddr:
+		return v.IP.String()
+	case *net.UDPAddr:
+		return v.IP.String()
+	default:
+		host, _, err := net.SplitHostPort(addr.String())
+		if err == nil {
+			return host
+		}
+		return addr.String()
+	}
+}
+
+func (e *Engine) applyHopSample(h *hopInternal, ttl int, peerIP string, rttMs float64, isDest bool) {
+	if peerIP != "" {
+		if h.ipCounts == nil {
+			h.ipCounts = make(map[string]int, 2)
+		}
+		h.ipCounts[peerIP]++
+		if h.ip == "" {
+			h.ip = peerIP
+		} else if h.ip != peerIP {
+			// Keep the dominant responder as primary during ECMP load balancing;
+			// only switch primary IP (and increment routeChanges) if the new IP overtakes.
+			if h.ipCounts[peerIP] > h.ipCounts[h.ip] {
+				h.ip = peerIP
+				h.routeChanges++
+			}
+		}
+	}
+	h.received++
+	h.lastMs = rttMs
+	h.sumMs += rttMs
+
+	if h.received == 1 || rttMs < h.bestMs {
+		h.bestMs = rttMs
+	}
+	if h.received == 1 || rttMs > h.worstMs {
+		h.worstMs = rttMs
+	}
+	if h.received > 1 {
+		delta := math.Abs(rttMs - h.prevRttMs)
+		h.jitterSumMs += delta
+		h.jitterCount++
+	}
+	h.prevRttMs = rttMs
+
+	h.history = append(h.history, round1(rttMs))
+	if len(h.history) > MaxHistorySize {
+		h.history = h.history[len(h.history)-MaxHistorySize:]
+	}
+
+	if isDest || peerIP == e.destIP.String() {
+		h.reachedDest = true
+		e.destSeenRound = true
+		e.destMissRounds = 0
+		if ttl < e.maxDestTTL {
+			e.maxDestTTL = ttl
+		}
+	}
+}
+
+func (e *Engine) recordReply(seq uint16, peerIP string, recvTime time.Time, isDest bool) bool {
+	e.mu.Lock()
+	probe, exists := e.inFlight[seq]
+	if !exists {
+		e.mu.Unlock()
+		return false
+	}
+	delete(e.inFlight, seq)
+
+	h, ok := e.hops[probe.ttl]
+	if !ok {
+		e.mu.Unlock()
+		return false
+	}
+
+	if e.hybridTCP && (isDest || peerIP == e.destIP.String()) {
+		e.hybridDestTTL = probe.ttl
+		e.destSeenRound = true
+		e.destMissRounds = 0
+		if probe.ttl < e.maxDestTTL {
+			e.maxDestTTL = probe.ttl
+		}
+		if h.sent > h.received && h.sent > 0 {
+			h.sent--
+		}
+		e.mu.Unlock()
+		return false
+	}
+
+	rttMs := float64(recvTime.Sub(probe.sentAt).Microseconds()) / 1000.0
+	if rttMs < 0.05 {
+		rttMs = 0.05
+	}
+
+	e.applyHopSample(h, probe.ttl, peerIP, rttMs, isDest)
+	e.mu.Unlock()
+
+	if peerIP != "" {
+		e.triggerAsyncDNS(peerIP)
+		e.triggerAsyncGeo(peerIP)
+	}
+	return true
+}
+
+func (e *Engine) reapTimeouts() bool {
+	now := time.Now()
+	expiredAny := false
+
+	e.mu.Lock()
+	for seq, probe := range e.inFlight {
+		if now.Sub(probe.sentAt) > PacketTimeout {
+			delete(e.inFlight, seq)
+			expiredAny = true
+		}
+	}
+	e.mu.Unlock()
+
+	return expiredAny
+}
+
+func addEngineWaiter(waiters []*Engine, eng *Engine) []*Engine {
+	for _, w := range waiters {
+		if w == eng {
+			return waiters
+		}
+	}
+	return append(waiters, eng)
+}
+
+func (e *Engine) triggerAsyncDNS(ip string) {
+	now := time.Now()
+	sharedMetaMu.Lock()
+	if rec, cached := sharedDNS[ip]; cached && now.Before(rec.expiresAt) {
+		sharedMetaMu.Unlock()
+		return
+	}
+	if waiters, pending := sharedDNSWaiters[ip]; pending {
+		sharedDNSWaiters[ip] = addEngineWaiter(waiters, e)
+		sharedMetaMu.Unlock()
+		return
+	}
+	sharedDNSWaiters[ip] = []*Engine{e}
+	sharedMetaMu.Unlock()
+
+	go func(addr string) {
+		ctx, cancel := context.WithTimeout(context.Background(), DNSTimeout)
+		defer cancel()
+
+		names, err := net.DefaultResolver.LookupAddr(ctx, addr)
+		hostname := ""
+		if err == nil && len(names) > 0 {
+			hostname = strings.TrimSuffix(names[0], ".")
+		}
+
+		ttl := positiveCacheTTL
+		if hostname == "" {
+			ttl = negativeCacheCooldown
+		}
+		finishTime := time.Now()
+
+		sharedMetaMu.Lock()
+		waiters := sharedDNSWaiters[addr]
+		delete(sharedDNSWaiters, addr)
+		if len(sharedDNS) >= maxSharedCacheEntries {
+			for k, v := range sharedDNS {
+				if finishTime.After(v.expiresAt) {
+					delete(sharedDNS, k)
+				}
+			}
+			if len(sharedDNS) >= maxSharedCacheEntries {
+				for k := range sharedDNS {
+					delete(sharedDNS, k)
+					break
+				}
+			}
+		}
+		sharedDNS[addr] = cachedDNSRecord{
+			hostname:  hostname,
+			expiresAt: finishTime.Add(ttl),
+		}
+		sharedMetaMu.Unlock()
+
+		if hostname != "" {
+			for _, w := range waiters {
+				w.emitSnapshot()
+			}
+		}
+	}(ip)
+}
+
+func (e *Engine) lookupCachedHostname(ip string) string {
+	if ip == "" {
+		return ""
+	}
+	now := time.Now()
+	sharedMetaMu.RLock()
+	rec, ok := sharedDNS[ip]
+	sharedMetaMu.RUnlock()
+	if !ok || now.After(rec.expiresAt) {
+		return ""
+	}
+	return rec.hostname
+}
+
+func classifyLocalOrWellKnownIP(ipStr string) (geoInfo, bool) {
+	parsed := net.ParseIP(ipStr)
+	if parsed == nil {
+		return geoInfo{}, false
+	}
+	if parsed.IsLoopback() {
+		return geoInfo{location: "Localhost", asn: "Loopback"}, true
+	}
+	if parsed.IsLinkLocalUnicast() || parsed.IsLinkLocalMulticast() {
+		return geoInfo{location: "Link-Local", asn: "RFC3927 / FE80::/10"}, true
+	}
+	if parsed.IsPrivate() {
+		return geoInfo{location: "Local LAN / Gateway", asn: "Private Network"}, true
+	}
+	if ip4 := parsed.To4(); ip4 != nil && ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
+		return geoInfo{location: "ISP Carrier-Grade NAT", asn: "CGNAT 100.64/10"}, true
+	}
+
+	switch ipStr {
+	case "8.8.8.8", "8.8.4.4", "2001:4860:4860::8888", "2001:4860:4860::8844":
+		return geoInfo{location: "Global Anycast • Google", asn: "AS15169 Google"}, true
+	case "1.1.1.1", "1.0.0.1", "2606:4700:4700::1111", "2606:4700:4700::1001":
+		return geoInfo{location: "Global Anycast • Cloudflare", asn: "AS13335 Cloudflare"}, true
+	case "9.9.9.9", "149.112.112.112", "2620:fe::fe", "2620:fe::9":
+		return geoInfo{location: "Global Anycast • Quad9", asn: "AS19281 Quad9"}, true
+	}
+	return geoInfo{}, false
+}
+
+func buildTeamCymruQuery(ip net.IP) (string, bool) {
+	if ip == nil {
+		return "", false
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		return fmt.Sprintf("%d.%d.%d.%d.origin.asn.cymru.com", ip4[3], ip4[2], ip4[1], ip4[0]), true
+	}
+	ip16 := ip.To16()
+	if ip16 == nil {
+		return "", false
+	}
+	const hexDigits = "0123456789abcdef"
+	nibbles := make([]byte, 0, 64)
+	for i := len(ip16) - 1; i >= 0; i-- {
+		b := ip16[i]
+		nibbles = append(nibbles, hexDigits[b&0x0f], '.', hexDigits[b>>4], '.')
+	}
+	return string(nibbles) + "origin6.asn.cymru.com", true
+}
+
+func lookupCymruASN(ctx context.Context, addr string) (asn string, country string) {
+	ip := net.ParseIP(addr)
+	originName, ok := buildTeamCymruQuery(ip)
+	if !ok {
+		return "", ""
+	}
+	txts, err := net.DefaultResolver.LookupTXT(ctx, originName)
+	if err != nil || len(txts) == 0 {
+		return "", ""
+	}
+	// Example: "13335 | 1.1.1.0/24 | AU | apnic | 2011-08-11"
+	parts := strings.Split(txts[0], "|")
+	if len(parts) == 0 {
+		return "", ""
+	}
+	asnFields := strings.Fields(strings.TrimSpace(parts[0]))
+	if len(asnFields) == 0 {
+		return "", ""
+	}
+	asNum := asnFields[0]
+	if len(parts) >= 3 {
+		cc := strings.TrimSpace(parts[2])
+		if len(cc) == 2 && cc != "ZZ" {
+			country = strings.ToUpper(cc)
+		}
+	}
+
+	asnLabel := "AS" + asNum
+	orgTxts, orgErr := net.DefaultResolver.LookupTXT(ctx, fmt.Sprintf("AS%s.asn.cymru.com", asNum))
+	if orgErr == nil && len(orgTxts) > 0 {
+		// Example: "13335 | US | arin | 2010-07-14 | CLOUDFLARENET, US"
+		orgParts := strings.Split(orgTxts[0], "|")
+		if len(orgParts) >= 5 {
+			orgName := strings.TrimSpace(orgParts[len(orgParts)-1])
+			if orgName != "" {
+				asnLabel = strings.TrimSpace(asnLabel + " " + orgName)
+			}
+		}
+	}
+	return asnLabel, country
+}
+
+func fetchHTTPSGeo(ctx context.Context, addr string) geoInfo {
+	url := fmt.Sprintf("https://ipwho.is/%s", addr)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return geoInfo{}
+	}
+	req.Header.Set("User-Agent", "Masar-Diagnostics/1.0")
+	resp, err := geoHTTPClient.Do(req)
+	if err != nil || resp == nil {
+		return geoInfo{}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return geoInfo{}
+	}
+	var payload struct {
+		Success     bool   `json:"success"`
+		CountryCode string `json:"country_code"`
+		City        string `json:"city"`
+		Connection  struct {
+			ASN int    `json:"asn"`
+			Org string `json:"org"`
+			ISP string `json:"isp"`
+		} `json:"connection"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 16*1024)).Decode(&payload); err != nil || !payload.Success {
+		return geoInfo{}
+	}
+	var info geoInfo
+	locParts := make([]string, 0, 2)
+	if payload.CountryCode != "" {
+		locParts = append(locParts, payload.CountryCode)
+	}
+	if payload.City != "" {
+		locParts = append(locParts, payload.City)
+	}
+	info.location = strings.Join(locParts, " • ")
+	org := strings.TrimSpace(payload.Connection.ISP)
+	if org == "" {
+		org = strings.TrimSpace(payload.Connection.Org)
+	}
+	if payload.Connection.ASN > 0 {
+		info.asn = fmt.Sprintf("AS%d", payload.Connection.ASN)
+		if org != "" {
+			info.asn = info.asn + " " + org
+		}
+	} else {
+		info.asn = org
+	}
+	return info
+}
+
+func (e *Engine) triggerAsyncGeo(ip string) {
+	if _, ok := classifyLocalOrWellKnownIP(ip); ok {
+		return
+	}
+
+	now := time.Now()
+	sharedMetaMu.Lock()
+	if rec, cached := sharedGeo[ip]; cached && now.Before(rec.expiresAt) {
+		sharedMetaMu.Unlock()
+		return
+	}
+	if waiters, pending := sharedGeoWaiters[ip]; pending {
+		sharedGeoWaiters[ip] = addEngineWaiter(waiters, e)
+		sharedMetaMu.Unlock()
+		return
+	}
+	sharedGeoWaiters[ip] = []*Engine{e}
+	sharedMetaMu.Unlock()
+
+	go func(addr string) {
+		ctx, cancel := context.WithTimeout(context.Background(), GeoTimeout)
+		defer cancel()
+
+		var info geoInfo
+		var cymruASN, cymruCC string
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			info = fetchHTTPSGeo(ctx, addr)
+		}()
+		go func() {
+			defer wg.Done()
+			cymruASN, cymruCC = lookupCymruASN(ctx, addr)
+		}()
+		wg.Wait()
+
+		if info.asn == "" && cymruASN != "" {
+			info.asn = cymruASN
+		}
+		if info.location == "" && cymruCC != "" {
+			info.location = cymruCC
+		}
+
+		hasData := info.location != "" || info.asn != ""
+		ttl := positiveCacheTTL
+		if !hasData {
+			ttl = negativeCacheCooldown
+		}
+		finishTime := time.Now()
+
+		sharedMetaMu.Lock()
+		waiters := sharedGeoWaiters[addr]
+		delete(sharedGeoWaiters, addr)
+		if len(sharedGeo) >= maxSharedCacheEntries {
+			for k, v := range sharedGeo {
+				if finishTime.After(v.expiresAt) {
+					delete(sharedGeo, k)
+				}
+			}
+			if len(sharedGeo) >= maxSharedCacheEntries {
+				for k := range sharedGeo {
+					delete(sharedGeo, k)
+					break
+				}
+			}
+		}
+		sharedGeo[addr] = cachedGeoRecord{
+			info:      info,
+			expiresAt: finishTime.Add(ttl),
+		}
+		sharedMetaMu.Unlock()
+
+		if hasData {
+			for _, w := range waiters {
+				w.emitSnapshot()
+			}
+		}
+	}(ip)
+}
+
+func (e *Engine) lookupCachedGeo(ip string) geoInfo {
+	if ip == "" {
+		return geoInfo{}
+	}
+	if info, ok := classifyLocalOrWellKnownIP(ip); ok {
+		return info
+	}
+	now := time.Now()
+	sharedMetaMu.RLock()
+	rec, ok := sharedGeo[ip]
+	sharedMetaMu.RUnlock()
+	if !ok || now.After(rec.expiresAt) {
+		return geoInfo{}
+	}
+	return rec.info
+}
+
+// Snapshot builds a thread-safe TraceSnapshot and computes the Smart Health Report.
+func (e *Engine) Snapshot() TraceSnapshot {
+	now := time.Now()
+
+	e.mu.RLock()
+	inFlightPerTTL := make(map[int]int)
+	for _, probe := range e.inFlight {
+		if now.Sub(probe.sentAt) <= PacketTimeout {
+			inFlightPerTTL[probe.ttl]++
+		}
+	}
+
+	limitTTL := e.maxDestTTL
+	highestActiveTTL := 1
+	anyDownstreamResponding := false
+	for ttl := 1; ttl <= limitTTL; ttl++ {
+		if h, ok := e.hops[ttl]; ok && (h.sent > 0 || h.received > 0) {
+			highestActiveTTL = ttl
+			if h.received > 0 {
+				anyDownstreamResponding = true
+			}
+			if h.reachedDest {
+				break
+			}
+		}
+	}
+
+	hopsOut := make([]HopStat, 0, highestActiveTTL)
+	for ttl := 1; ttl <= highestActiveTTL; ttl++ {
+		h := e.hops[ttl]
+		if h == nil {
+			continue
+		}
+
+		effectiveSent := h.sent - inFlightPerTTL[ttl]
+		if effectiveSent < h.received {
+			effectiveSent = h.received
+		}
+
+		lossPct := 0.0
+		// Only calculate packet loss if this hop has responded at least once,
+		// OR if no downstream hop is responding at all (meaning traffic is genuinely blackholed).
+		if effectiveSent > 0 && (h.received > 0 || !anyDownstreamResponding) {
+			lost := effectiveSent - h.received
+			if lost < 0 {
+				lost = 0
+			}
+			lossPct = (float64(lost) / float64(effectiveSent)) * 100.0
+		}
+
+		avgMs := 0.0
+		if h.received > 0 {
+			avgMs = h.sumMs / float64(h.received)
+		}
+
+		jitterMs := 0.0
+		if h.jitterCount > 0 {
+			jitterMs = h.jitterSumMs / float64(h.jitterCount)
+		}
+
+		histCopy := make([]float64, len(h.history))
+		copy(histCopy, h.history)
+
+		geo := e.lookupCachedGeo(h.ip)
+
+		var altIPs []string
+		if len(h.ipCounts) > 1 {
+			altIPs = make([]string, 0, len(h.ipCounts)-1)
+			for cand := range h.ipCounts {
+				if cand != "" && cand != h.ip {
+					altIPs = append(altIPs, cand)
+				}
+			}
+			sort.Strings(altIPs)
+		}
+
+		var mosScore float64
+		if h.received > 0 {
+			mosScore, _ = ComputeMOS(avgMs, jitterMs, lossPct)
+		}
+
+		hopsOut = append(hopsOut, HopStat{
+			Hop:          h.hop,
+			IP:           h.ip,
+			AltIPs:       altIPs,
+			RouteChanges: h.routeChanges,
+			Hostname:     e.lookupCachedHostname(h.ip),
+			Location:     geo.location,
+			ASN:          geo.asn,
+			Sent:         effectiveSent,
+			Received:     h.received,
+			LossPercent:  round1(lossPct),
+			LastMs:       round1(h.lastMs),
+			AvgMs:        round1(avgMs),
+			BestMs:       round1(h.bestMs),
+			WorstMs:      round1(h.worstMs),
+			JitterMs:     round1(jitterMs),
+			MOS:          mosScore,
+			History:      histCopy,
+			ReachedDest:  h.reachedDest,
+		})
+
+		if h.reachedDest {
+			break
+		}
+	}
+	proto := "ICMPv4"
+	ipVer := 4
+	if e.isIPv6 {
+		proto = "ICMPv6"
+		ipVer = 6
+	}
+	if e.protocolOverride != "" {
+		proto = e.protocolOverride
+	} else if e.probeMode == ProbeTCP {
+		proto = fmt.Sprintf("TCP-MTR :%d", e.targetPort)
+	} else if e.probeMode == ProbeUDP {
+		proto = "UDP-MTR"
+	}
+	e.mu.RUnlock()
+
+	var routeMOS float64
+	var routeMOSGrade string
+	for i := len(hopsOut) - 1; i >= 0; i-- {
+		if hopsOut[i].Received > 0 && hopsOut[i].MOS > 0 {
+			routeMOS, routeMOSGrade = ComputeMOS(hopsOut[i].AvgMs, hopsOut[i].JitterMs, hopsOut[i].LossPercent)
+			break
+		}
+	}
+
+	health := EvaluateHealth(hopsOut)
+
+	return TraceSnapshot{
+		Running:    true,
+		Target:     e.target,
+		ResolvedIP: e.destIP.String(),
+		Protocol:   proto,
+		IPVersion:  ipVer,
+		MOSScore:   routeMOS,
+		MOSGrade:   routeMOSGrade,
+		UpdatedAt:  now.Format("15:04:05"),
+		Hops:       hopsOut,
+		Health:     health,
+	}
+}
+
+const minSnapshotEmitInterval = 85 * time.Millisecond
+
+func (e *Engine) emitSnapshot() {
+	if e.onUpdate == nil {
+		return
+	}
+	now := time.Now()
+	e.emitMu.Lock()
+	if !e.lastEmit.IsZero() && now.Sub(e.lastEmit) < minSnapshotEmitInterval {
+		e.emitPending = true
+		e.emitMu.Unlock()
+		return
+	}
+	e.lastEmit = now
+	e.emitPending = false
+	e.emitMu.Unlock()
+
+	e.onUpdate(e.Snapshot())
+}
+
+func (e *Engine) emitSnapshotImmediate() {
+	if e.onUpdate == nil {
+		return
+	}
+	e.emitMu.Lock()
+	e.lastEmit = time.Now()
+	e.emitPending = false
+	e.emitMu.Unlock()
+
+	e.onUpdate(e.Snapshot())
+}
+
+func (e *Engine) flushPendingSnapshot() {
+	if e.onUpdate == nil {
+		return
+	}
+	e.emitMu.Lock()
+	if !e.emitPending {
+		e.emitMu.Unlock()
+		return
+	}
+	e.lastEmit = time.Now()
+	e.emitPending = false
+	e.emitMu.Unlock()
+
+	e.onUpdate(e.Snapshot())
+}
+
+// EvaluateHealth analyzes local gateway, ISP aggregation hops, and the destination hop.
+func EvaluateHealth(hops []HopStat) HealthReport {
+	if len(hops) == 0 {
+		return HealthReport{
+			Score:      100,
+			Severity:   "idle",
+			Status:     "Initializing Network Path Discovery...",
+			Detail:     "Sending ICMP probes across hops to analyze local router, ISP gateway, and target latency.",
+			CulpritHop: 0,
+		}
+	}
+
+	var hop1 *HopStat
+	var hop2 *HopStat
+	var hop3 *HopStat
+	var finalHop *HopStat
+
+	for i := range hops {
+		h := &hops[i]
+		switch h.Hop {
+		case 1:
+			hop1 = h
+		case 2:
+			hop2 = h
+		case 3:
+			hop3 = h
+		}
+		if h.Received > 0 || i == len(hops)-1 {
+			finalHop = h
+		}
+	}
+
+	totalCompleted := 0
+	for _, h := range hops {
+		totalCompleted += h.Sent
+	}
+	if totalCompleted == 0 {
+		return HealthReport{
+			Score:      100,
+			Severity:   "idle",
+			Status:     "Measuring Network Path...",
+			Detail:     "Awaiting initial ICMP Echo & Time Exceeded responses.",
+			CulpritHop: 0,
+		}
+	}
+
+	// Check local gateway (Hop 1) when it replies to ICMP or when all downstream hops time out.
+	if hop1 != nil && hop1.Sent > 0 && (hop1.Received > 0 || (finalHop != nil && finalHop.Received == 0)) {
+		hop1Loss := hop1.LossPercent
+		hop1Avg := hop1.AvgMs
+		if hop1Loss > 2.0 || hop1Avg > 25.0 {
+			score := computeScore(hop1Loss, hop1Avg, hop1.JitterMs)
+			severity := "warning"
+			if hop1Loss > 5.0 || hop1Avg > 60.0 || score < 65 {
+				severity = "critical"
+			}
+			return HealthReport{
+				Score:      score,
+				Severity:   severity,
+				Status:     "Issue detected in Local Network / Wi-Fi",
+				Detail:     fmt.Sprintf("Hop 1 (%s) shows %.1f%% packet loss and %.1f ms avg latency. Check your Wi-Fi signal strength, Ethernet cable, or local router.", fallbackIP(hop1.IP), hop1Loss, hop1Avg),
+				CulpritHop: 1,
+			}
+		}
+	}
+
+	// Check ISP gateway hops (Hops 2-3).
+	ispCandidates := []*HopStat{hop2, hop3}
+	for _, ispHop := range ispCandidates {
+		if ispHop == nil || ispHop.Sent == 0 || ispHop.Received == 0 {
+			continue
+		}
+		// Harmless ICMP rate-limiting check:
+		// If the final destination is reachable with clean packet delivery (<= 2% loss),
+		// packet loss on an intermediate transit node is merely router CPU ICMP rate-limiting
+		// rather than genuine route congestion.
+		if finalHop != nil && finalHop.Received > 0 && finalHop.LossPercent <= 2.0 && ispHop.LossPercent > 2.0 && ispHop.AvgMs <= 100.0 {
+			continue
+		}
+		if ispHop.LossPercent > 2.0 || ispHop.AvgMs > 75.0 {
+			score := computeScore(ispHop.LossPercent, ispHop.AvgMs, ispHop.JitterMs)
+			severity := "warning"
+			if ispHop.LossPercent > 5.0 || ispHop.AvgMs > 130.0 || score < 65 {
+				severity = "critical"
+			}
+			return HealthReport{
+				Score:      score,
+				Severity:   severity,
+				Status:     "Issue detected at ISP / Backbone",
+				Detail:     fmt.Sprintf("Your local router (Hop 1) is clean, but Hop %d (%s) exhibits %.1f%% packet loss and %.1f ms average latency. Share the Support Summary with your ISP.", ispHop.Hop, fallbackIP(ispHop.IP), ispHop.LossPercent, ispHop.AvgMs),
+				CulpritHop: ispHop.Hop,
+			}
+		}
+	}
+
+	// Check intermediate transit hops (#4 .. finalHop-1) for sustained downstream-correlated loss.
+	// If the final target delivers cleanly (<= 2% loss), intermediate loss is harmless ICMP rate-limiting.
+	for i := range hops {
+		mid := &hops[i]
+		if mid.Hop < 4 || mid.ReachedDest || (finalHop != nil && mid.Hop >= finalHop.Hop) {
+			continue
+		}
+		if mid.Sent == 0 || mid.Received == 0 || mid.LossPercent <= 2.0 {
+			continue
+		}
+		if finalHop != nil && finalHop.Received > 0 && finalHop.LossPercent > 2.0 {
+			score := computeScore(mid.LossPercent, mid.AvgMs, mid.JitterMs)
+			severity := "warning"
+			if mid.LossPercent > 5.0 || mid.AvgMs > 200.0 || score < 65 {
+				severity = "critical"
+			}
+			return HealthReport{
+				Score:      score,
+				Severity:   severity,
+				Status:     "Degradation detected on Downstream Transit / Target",
+				Detail:     fmt.Sprintf("Loss starts at transit Hop %d (%s: %.1f%% loss, %.1f ms avg) and persists to destination.", mid.Hop, fallbackIP(mid.IP), mid.LossPercent, mid.AvgMs),
+				CulpritHop: mid.Hop,
+			}
+		}
+	}
+
+	// Check downstream transit or target destination.
+	if finalHop != nil && finalHop.Sent > 0 {
+		if finalHop.LossPercent > 2.0 || finalHop.AvgMs > 150.0 {
+			score := computeScore(finalHop.LossPercent, finalHop.AvgMs, finalHop.JitterMs)
+			severity := "warning"
+			if finalHop.LossPercent > 5.0 || finalHop.AvgMs > 250.0 || score < 65 {
+				severity = "critical"
+			}
+			return HealthReport{
+				Score:      score,
+				Severity:   severity,
+				Status:     "Degradation detected on Downstream Transit / Target",
+				Detail:     fmt.Sprintf("Local network and ISP gateway are stable, but Hop %d (%s) reports %.1f%% loss and %.1f ms latency.", finalHop.Hop, fallbackIP(finalHop.IP), finalHop.LossPercent, finalHop.AvgMs),
+				CulpritHop: finalHop.Hop,
+			}
+		}
+	}
+
+	refLoss := 0.0
+	refAvg := 10.0
+	refJitter := 1.0
+	if finalHop != nil && finalHop.Received > 0 {
+		refLoss = finalHop.LossPercent
+		refAvg = finalHop.AvgMs
+		refJitter = finalHop.JitterMs
+	}
+	score := computeScore(refLoss, refAvg, refJitter)
+	if score < 85 {
+		score = 88
+	}
+
+	detail := "Zero significant packet loss across local router and ISP gateway hops."
+	if finalHop != nil && finalHop.Received > 0 {
+		detail = fmt.Sprintf("End-to-end latency to %s is %.1f ms (jitter %.1f ms, loss %.1f%%).", fallbackIP(finalHop.IP), finalHop.AvgMs, finalHop.JitterMs, finalHop.LossPercent)
+	}
+
+	return HealthReport{
+		Score:      score,
+		Severity:   "healthy",
+		Status:     "Connection is Healthy — Optimal Path Performance",
+		Detail:     detail,
+		CulpritHop: 0,
+	}
+}
+
+func computeScore(lossPct, avgMs, jitterMs float64) int {
+	penalty := (lossPct * 4.5) + math.Max(0, (avgMs-20.0)*0.35) + math.Max(0, (jitterMs-5.0)*0.8)
+	raw := int(math.Round(100.0 - penalty))
+	if raw > 100 {
+		return 100
+	}
+	if raw < 5 {
+		return 5
+	}
+	return raw
+}
+
+func fallbackIP(ip string) string {
+	if ip == "" {
+		return "* * * (Request Timed Out)"
+	}
+	return ip
+}
+
+func round1(val float64) float64 {
+	return math.Round(val*10) / 10
+}
